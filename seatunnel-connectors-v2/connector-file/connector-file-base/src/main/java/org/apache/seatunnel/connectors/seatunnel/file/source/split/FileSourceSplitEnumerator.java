@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.slf4j.Logger;
@@ -39,6 +40,7 @@ public class FileSourceSplitEnumerator
     private final Set<FileSourceSplit> pendingSplit = new HashSet<>();
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
+    private ReadStrategy readStrategy;
 
     public FileSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
@@ -70,7 +72,10 @@ public class FileSourceSplitEnumerator
 
     private Set<FileSourceSplit> discoverySplits() {
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
-        filePaths.forEach(k -> fileSourceSplits.add(new FileSourceSplit(k)));
+        for (String filePath : filePaths) {
+            Set<FileSourceSplit> set = readStrategy.getFileSourceSplits(filePath);
+            fileSourceSplits.addAll(set);
+        }
         return fileSourceSplits;
     }
 

@@ -26,10 +26,32 @@ public class FileSourceSplit implements SourceSplit {
 
     @Getter private final String tableId;
     @Getter private final String filePath;
+    // 左闭右闭
+    private Long minRowIndex;
+    private Long maxRowIndex;
+
+    public long getRows() {
+        return maxRowIndex - minRowIndex;
+    }
+
+    public Long getMinRowIndex() {
+        return minRowIndex;
+    }
+
+    public Long getMaxRowIndex() {
+        return maxRowIndex;
+    }
 
     public FileSourceSplit(String splitId) {
         this.filePath = splitId;
         this.tableId = null;
+    }
+
+    public FileSourceSplit(String splitId, long min, long max) {
+        this.filePath = splitId;
+        this.tableId = null;
+        this.minRowIndex = min;
+        this.maxRowIndex = max;
     }
 
     public FileSourceSplit(String tableId, String filePath) {
@@ -45,5 +67,21 @@ public class FileSourceSplit implements SourceSplit {
             return filePath;
         }
         return tableId + "_" + filePath;
+    }
+
+    @Override
+    public String toString() {
+        return "FileSourceSplit{"
+                + "tableId='"
+                + tableId
+                + '\''
+                + ", filePath='"
+                + filePath
+                + '\''
+                + ", minRowIndex="
+                + minRowIndex
+                + ", maxRowIndex="
+                + maxRowIndex
+                + '}';
     }
 }

@@ -178,4 +178,17 @@ public class BaseSourceConfigOptions {
                     .enumType(ArchiveCompressFormat.class)
                     .defaultValue(ArchiveCompressFormat.NONE)
                     .withDescription("Archive compression codec");
+
+    public static final Option<Long> FILE_SIZE_PER_SPLIT =
+            Options.key("file_size_per_split")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "split a file into many splits according to file size, if row_count_per_split not config. use row_count_per_split prefer.");
+
+    public static final Option<Long> ROW_COUNT_PER_SPLIT =
+            Options.key("row_count_per_split")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("split a file into many splits according to row count");
 }

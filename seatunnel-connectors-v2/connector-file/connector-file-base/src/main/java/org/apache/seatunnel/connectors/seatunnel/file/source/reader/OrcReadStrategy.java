@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -33,6 +35,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -41,6 +44,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
+import org.apache.orc.StripeInformation;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.storage.ql.exec.vector.BytesColumnVector;
 import org.apache.orc.storage.ql.exec.vector.ColumnVector;
@@ -70,8 +74,10 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.api.table.type.TypeUtil.canConvert;
 import static org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy.buildFieldWithRowType;
@@ -79,6 +85,212 @@ import static org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWrit
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
+
+    private int batchReadRows = 1024;
+
+    /** user can specified row count per split */
+    private long rowCountPerSplitByUser = 0;
+
+    private final long DEFAULT_FILE_SIZE_PER_SPLIT = 1024 * 1024 * 30;
+    private final long DEFAULT_ROW_COUNT = 100000;
+    private long fileSizePerSplitByUser = DEFAULT_FILE_SIZE_PER_SPLIT;
+
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.ROW_COUNT_PER_SPLIT.key())) {
+            rowCountPerSplitByUser =
+                    pluginConfig.getLong(BaseSourceConfigOptions.ROW_COUNT_PER_SPLIT.key());
+        }
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_SIZE_PER_SPLIT.key())) {
+            fileSizePerSplitByUser =
+                    pluginConfig.getLong(BaseSourceConfigOptions.FILE_SIZE_PER_SPLIT.key());
+        }
+    }
+
+    /**
+     * split a file into many splits: good: 1. lower memory occupy. split read end, the memory can
+     * recycle. 2. lower checkpoint ack delay 3. Support fine-grained concurrency bad: 1. cannot
+     * guarantee the order of the data.
+     *
+     * @param path 文件路径
+     * @return FileSourceSplit set
+     */
+    @Override
+    public Set<FileSourceSplit> getFileSourceSplits(String path) {
+        if (Boolean.FALSE.equals(checkFileType(path))) {
+            String errorMsg =
+                    String.format(
+                            "This file [%s] is not a orc file, please check the format of this file",
+                            path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
+        }
+        Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
+        try (Reader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        ((configuration, userGroupInformation) -> {
+                            OrcFile.ReaderOptions readerOptions =
+                                    OrcFile.readerOptions(configuration);
+                            return OrcFile.createReader(new Path(path), readerOptions);
+                        }))) {
+            log.info(
+                    "path:{}, rowCountPerSplitByUser:{}, fileSizePerSplitByUser:{}, fileSize:{}, stripCount:{}, rowCount:{}",
+                    path,
+                    rowCountPerSplitByUser,
+                    fileSizePerSplitByUser,
+                    reader.getContentLength(),
+                    reader.getStripes().size(),
+                    reader.getNumberOfRows());
+            long rowCountPerSplit = rowCountPerSplitByUser;
+            if (rowCountPerSplit <= 0) {
+                // 按照文件大小自动分片
+                long fileSize = reader.getContentLength();
+                long rowCount = reader.getNumberOfRows();
+                long splitCount =
+                        fileSize
+                                / (fileSizePerSplitByUser <= 0
+                                        ? DEFAULT_FILE_SIZE_PER_SPLIT
+                                        : fileSizePerSplitByUser);
+                if (rowCount == 0 || splitCount == 0) {
+                    log.warn("cannot get file size or row count for orc file:{}", path);
+                    rowCountPerSplit = DEFAULT_ROW_COUNT;
+                } else {
+                    rowCountPerSplit = rowCount / splitCount;
+                }
+            }
+            long low = 0;
+            long high = low;
+            int splitCountAll = 0;
+            if (reader.getStripes() == null) {
+                log.warn("cannot get stripes for orc file:{}", path);
+                fileSourceSplits.add(new FileSourceSplit(path));
+                return fileSourceSplits;
+            }
+            for (int i = 0; i < reader.getStripes().size(); i++) {
+                StripeInformation stripe = reader.getStripes().get(i);
+                long leftOverCount = stripe.getNumberOfRows();
+                int splitCount4Strip = 0;
+                long startRow = low;
+                while (leftOverCount > 0) {
+                    if (leftOverCount > rowCountPerSplit) {
+                        high = low + rowCountPerSplit;
+                    } else {
+                        high = low + leftOverCount;
+                    }
+                    FileSourceSplit split = new FileSourceSplit(path, low, high - 1);
+                    fileSourceSplits.add(split);
+                    leftOverCount = leftOverCount - rowCountPerSplit;
+                    low = high;
+                    splitCountAll++;
+                    splitCount4Strip++;
+                }
+                log.debug(
+                        "generate split count:{} for this strip:{}, startRow:{}, endRow:{},",
+                        splitCount4Strip,
+                        i,
+                        startRow,
+                        high - 1);
+            }
+            log.info("generate split count:{} for this file:{}", splitCountAll, path);
+            return fileSourceSplits;
+        } catch (IOException e) {
+            String errorMsg = String.format("Create orc reader for this file [%s] failed", path);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg);
+        }
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        String path = split.getFilePath();
+        String tableId = split.getTableId();
+        if (split.getMinRowIndex() == null || split.getMaxRowIndex() == null) {
+            log.warn(
+                    "minRowIndex or maxRowIndex is null, use fileBaseRead. fileSourceSplit:{}",
+                    split);
+            read(path, tableId, output);
+            return;
+        }
+        if (Boolean.FALSE.equals(checkFileType(path))) {
+            String errorMsg =
+                    String.format(
+                            "This file [%s] is not a orc file, please check the format of this file",
+                            path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
+        }
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        long startTime = System.currentTimeMillis();
+        log.info("orc file split read start. path:{}, ts:{}", path, startTime);
+        try (Reader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        (configuration, userGroupInformation) -> {
+                            OrcFile.ReaderOptions readerOptions =
+                                    OrcFile.readerOptions(configuration);
+                            return OrcFile.createReader(new Path(path), readerOptions);
+                        })) {
+            TypeDescription schema = TypeDescription.createStruct();
+            for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+                TypeDescription typeDescription =
+                        buildFieldWithRowType(seaTunnelRowType.getFieldType(i));
+                schema.addField(seaTunnelRowType.getFieldName(i), typeDescription);
+            }
+            List<TypeDescription> children = schema.getChildren();
+            RecordReader rows = reader.rows(reader.options().schema(schema));
+            rows.seekToRow(split.getMinRowIndex());
+            VectorizedRowBatch rowBatch = schema.createRowBatch(batchReadRows);
+            long curRowCount = split.getMinRowIndex();
+            while (rows.nextBatch(rowBatch)) {
+                int num = 0;
+                if (curRowCount > split.getMaxRowIndex()) {
+                    break;
+                }
+                for (int i = 0; i < rowBatch.size; i++) {
+                    int numCols = rowBatch.numCols;
+                    Object[] fields;
+                    if (isMergePartition) {
+                        int index = numCols;
+                        fields = new Object[numCols + partitionsMap.size()];
+                        for (String value : partitionsMap.values()) {
+                            fields[index++] = value;
+                        }
+                    } else {
+                        fields = new Object[numCols];
+                    }
+                    ColumnVector[] cols = rowBatch.cols;
+                    for (int j = 0; j < numCols; j++) {
+                        if (cols[j] == null) {
+                            fields[j] = null;
+                        } else {
+                            fields[j] =
+                                    readColumn(
+                                            cols[j],
+                                            children.get(j),
+                                            seaTunnelRowType.getFieldType(j),
+                                            num);
+                        }
+                    }
+                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    seaTunnelRow.setTableId(tableId);
+                    output.collect(seaTunnelRow);
+                    num++;
+                    curRowCount++;
+                    if (curRowCount > split.getMaxRowIndex()) {
+                        break;
+                    }
+                }
+            }
+            long endTime = System.currentTimeMillis();
+            log.info(
+                    "orc file split read end. path:{}, ts:{}, useTime:{}, fileSize:{}, totalRows:{}, readRows:{}",
+                    path,
+                    endTime,
+                    endTime - startTime,
+                    reader.getContentLength(),
+                    reader.getNumberOfRows(),
+                    split.getRows());
+        }
+    }
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -91,6 +303,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        long startTime = System.currentTimeMillis();
+        log.info("orc file read start. path:{}, ts:{}", path, startTime);
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
@@ -107,6 +321,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             List<TypeDescription> children = schema.getChildren();
             RecordReader rows = reader.rows(reader.options().schema(schema));
             VectorizedRowBatch rowBatch = schema.createRowBatch();
+
             while (rows.nextBatch(rowBatch)) {
                 int num = 0;
                 for (int i = 0; i < rowBatch.size; i++) {
@@ -140,6 +355,14 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     num++;
                 }
             }
+            long endTime = System.currentTimeMillis();
+            log.info(
+                    "orc file read end. path:{}, ts:{}, useTime:{}, fileSize:{}, totalRows:{}",
+                    path,
+                    endTime,
+                    endTime - startTime,
+                    reader.getContentLength(),
+                    reader.getNumberOfRows());
         }
     }
 
