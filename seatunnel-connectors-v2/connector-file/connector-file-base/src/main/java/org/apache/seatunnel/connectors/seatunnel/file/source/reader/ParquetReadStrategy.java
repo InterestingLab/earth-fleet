@@ -33,12 +33,14 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
@@ -66,8 +68,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -81,6 +85,101 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final String PARQUET = "Parquet";
 
     private int[] indexes;
+
+    @Override
+    public Set<FileSourceSplit> getFileSourceSplits(String path) {
+        Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
+        ParquetMetadata metadata;
+        try (ParquetFileReader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        ((configuration, userGroupInformation) -> {
+                            HadoopInputFile hadoopInputFile =
+                                    HadoopInputFile.fromPath(new Path(path), configuration);
+                            return ParquetFileReader.open(hadoopInputFile);
+                        }))) {
+            metadata = reader.getFooter();
+        } catch (IOException e) {
+            String errorMsg =
+                    String.format("Create parquet reader for this file [%s] failed", path);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
+        }
+        if (metadata == null || CollectionUtils.isEmpty(metadata.getBlocks())) {
+            log.warn("cannot get meta or blocks for path:{}", path);
+            fileSourceSplits.add(new FileSourceSplit(path));
+            return fileSourceSplits;
+        }
+
+        long low = 0;
+        long high = low;
+        long splitCountAll = 0;
+        for (int i = 0; i < metadata.getBlocks().size(); i++) {
+            high = low + metadata.getBlocks().get(i).getCompressedSize();
+            FileSourceSplit split = new FileSourceSplit(path, low, high);
+            fileSourceSplits.add(split);
+            low = high;
+        }
+        log.info("generate parquet split count:{} for this file:{}", splitCountAll, path);
+        return fileSourceSplits;
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        String path = split.getFilePath();
+        String tableId = split.getTableId();
+        if (split.getMinRowIndex() == null || split.getMaxRowIndex() == null) {
+            log.warn(
+                    "minRowIndex or maxRowIndex is null, use fileBaseRead. fileSourceSplit:{}",
+                    split);
+            read(path, tableId, output);
+            return;
+        }
+        if (Boolean.FALSE.equals(checkFileType(path))) {
+            String errorMsg =
+                    String.format(
+                            "This file [%s] is not a parquet file, please check the format of this file",
+                            path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
+        }
+        Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        HadoopInputFile hadoopInputFile =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        (configuration, userGroupInformation) ->
+                                HadoopInputFile.fromPath(filePath, configuration));
+        int fieldsCount = seaTunnelRowType.getTotalFields();
+        GenericData dataModel = new GenericData();
+        dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
+        dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
+        dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        GenericRecord record;
+        try (ParquetReader<GenericData.Record> reader =
+                AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
+                        .withDataModel(dataModel)
+                        .withFileRange(split.getMinRowIndex(), split.getMaxRowIndex())
+                        .build()) {
+            while ((record = reader.read()) != null) {
+                Object[] fields;
+                if (isMergePartition) {
+                    int index = fieldsCount;
+                    fields = new Object[fieldsCount + partitionsMap.size()];
+                    for (String value : partitionsMap.values()) {
+                        fields[index++] = value;
+                    }
+                } else {
+                    fields = new Object[fieldsCount];
+                }
+                for (int i = 0; i < fieldsCount; i++) {
+                    Object data = record.get(indexes[i]);
+                    fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
+                }
+                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                seaTunnelRow.setTableId(tableId);
+                output.collect(seaTunnelRow);
+            }
+        }
+    }
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)

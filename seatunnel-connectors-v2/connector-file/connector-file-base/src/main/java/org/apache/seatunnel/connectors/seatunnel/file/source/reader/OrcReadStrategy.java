@@ -91,8 +91,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     /** user can specified row count per split */
     private long rowCountPerSplitByUser = 0;
 
-    private final long DEFAULT_FILE_SIZE_PER_SPLIT = 1024 * 1024 * 30;
     private final long DEFAULT_ROW_COUNT = 100000;
+    private final long DEFAULT_FILE_SIZE_PER_SPLIT = 1024 * 1024 * 30;
     private long fileSizePerSplitByUser = DEFAULT_FILE_SIZE_PER_SPLIT;
 
     @Override
