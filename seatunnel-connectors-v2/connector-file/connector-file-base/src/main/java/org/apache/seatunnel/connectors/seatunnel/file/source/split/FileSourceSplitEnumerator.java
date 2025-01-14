@@ -47,7 +47,6 @@ public class FileSourceSplitEnumerator
     private ReadStrategy readStrategy;
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
-
     public FileSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
         this.context = context;

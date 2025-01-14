@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -59,7 +61,6 @@ import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -102,6 +103,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     /**
      * parquet file can only split by file block now. <br>
      * user cannot customise the split count and size. <br>
+     *
      * @param path file path
      * @return splits
      */
