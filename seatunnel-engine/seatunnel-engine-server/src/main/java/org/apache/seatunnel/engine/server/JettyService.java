@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningThreadsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobByUploadFileServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
@@ -47,6 +48,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.DispatcherType;
+import javax.servlet.MultipartConfigElement;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
@@ -70,6 +72,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
@@ -122,6 +125,9 @@ public class JettyService {
         ServletHolder threadDumpHolder = new ServletHolder(new ThreadDumpServlet(nodeEngine));
 
         ServletHolder submitJobHolder = new ServletHolder(new SubmitJobServlet(nodeEngine));
+        ServletHolder submitJobByUploadFileHolder =
+                new ServletHolder(new SubmitJobByUploadFileServlet(nodeEngine));
+
         ServletHolder submitJobsHolder = new ServletHolder(new SubmitJobsServlet(nodeEngine));
         ServletHolder stopJobHolder = new ServletHolder(new StopJobServlet(nodeEngine));
         ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(nodeEngine));
@@ -147,7 +153,10 @@ public class JettyService {
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
         context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
-
+        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("");
+        submitJobByUploadFileHolder.getRegistration().setMultipartConfig(multipartConfigElement);
+        context.addServlet(
+                submitJobByUploadFileHolder, convertUrlToPath(REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE));
         context.addServlet(submitJobHolder, convertUrlToPath(REST_URL_SUBMIT_JOB));
         context.addServlet(submitJobsHolder, convertUrlToPath(REST_URL_SUBMIT_JOBS));
         context.addServlet(stopJobHolder, convertUrlToPath(REST_URL_STOP_JOB));

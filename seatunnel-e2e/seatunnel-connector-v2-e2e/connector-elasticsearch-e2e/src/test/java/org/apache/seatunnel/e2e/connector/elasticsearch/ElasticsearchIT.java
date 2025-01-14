@@ -42,6 +42,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.io.IOUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,6 +76,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
@@ -350,6 +352,37 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(
                 1,
                 esRestClient.getIndexDocsCount("st_index_full_type_target").get(0).getDocsCount());
+    }
+
+    @TestTemplate
+    public void testFakeSourceToElasticsearchWithUpperCaseIndex(TestContainer container) {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        Container.ExecResult execResult =
+                                container.executeJob(
+                                        "/elasticsearch/fakesource_to_elasticsearch_with_upper_case_index.conf");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .pollInterval(3, TimeUnit.SECONDS)
+                .pollDelay(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    20,
+                                    esRestClient
+                                            .getIndexDocsCount("st_fake_table")
+                                            .get(0)
+                                            .getDocsCount());
+                        });
     }
 
     @TestTemplate

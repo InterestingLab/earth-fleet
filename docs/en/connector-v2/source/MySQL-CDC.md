@@ -175,7 +175,9 @@ When an initial consistent snapshot is made for large databases, your establishe
 | username                                       | String   | Yes      | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                       | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                                 | List     | No       | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| database-pattern                               | String   | No       | .*      | The database names RegEx of the database to capture, for example: `database_prefix.*`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | table-names                                    | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| table-pattern                                  | String   | Yes      | -       | The table names RegEx of the database to capture. The table name needs to include the database name, for example: `database.*\\.table_.*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names-config                             | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.                                                                                                                                                                                                                        |
 | startup.specific-offset.file                   | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -302,6 +304,34 @@ sink {
   }
 }
 
+```
+### Support table-pattern for multi-table reading
+> `table-pattern` and `table-names` are mutually exclusive
+```hocon
+env {
+  # You can set engine configuration here
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+  read_limit.bytes_per_second=7000000
+  read_limit.rows_per_second=400
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    database-pattern = "source.*"
+    table-pattern = "source.*\\..*"
+    base-url = "jdbc:mysql://mysql_cdc_e2e:3306"
+  }
+}
+
+sink {
+  Console {
+  }
+}
 ```
 
 

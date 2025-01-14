@@ -155,6 +155,7 @@ public final class SeaTunnelRow implements Serializable {
             case TIME:
                 return 12;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return 48;
             case FLOAT_VECTOR:
             case FLOAT16_VECTOR:
@@ -177,6 +178,7 @@ public final class SeaTunnelRow implements Serializable {
                         case TIME:
                             return ((Object[]) v).length * 12;
                         case TIMESTAMP:
+                        case TIMESTAMP_TZ:
                             return ((Object[]) v).length * 48;
                         default:
                             throw new UnsupportedOperationException(
@@ -285,6 +287,7 @@ public final class SeaTunnelRow implements Serializable {
             case "LocalTime":
                 return 12;
             case "LocalDateTime":
+            case "OffsetDateTime":
                 return 48;
             case "String[]":
                 return getBytesForArray(v, BasicType.STRING_TYPE);

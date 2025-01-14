@@ -233,14 +233,45 @@ sink {
 }
 ```
 
-## Changelog
+### Schema Evolution
 
-### 2.2.0-beta 2022-09-26
+CDC collection supports a limited number of schema changes. The currently supported schema changes include:
 
-- Add Elasticsearch Sink Connector
+* Adding columns.
 
-### next version
+### Schema Evolution
+```hocon
+env {
+  # You can set engine configuration here
+  parallelism = 5
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+  read_limit.bytes_per_second = 7000000
+  read_limit.rows_per_second = 400
+}
 
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3673](https://github.com/apache/seatunnel/pull/3673))
-- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/seatunnel/pull/3997))
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    schema-changes.enabled = true
+  }
+}
 
+sink {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index = "schema_change_index"
+    index_type = "_doc"
+    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    "data_save_mode" = "APPEND_DATA"
+  }
+}
+```
