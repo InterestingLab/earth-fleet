@@ -163,7 +163,7 @@ public class OrcReadStrategyTest {
 
     @Test
     public void testOrcGetSplits() throws IOException {
-        String file = "d:/local_output.orc";
+        String file = "/tmp/orc_split/local_output.orc";
         deleteFile(file);
         int rowCount = 30000000;
         List<StripeInformation> list = autoGenData(file, rowCount);
@@ -209,7 +209,7 @@ public class OrcReadStrategyTest {
 
     @Test
     public void testOrcReadSplitBigFile() throws IOException {
-        String file = "d:/local_output.orc";
+        String file = "/tmp/orc_split/local_output.orc";
         deleteFile(file);
         int rowCount = 30000000;
         autoGenData(file, rowCount);

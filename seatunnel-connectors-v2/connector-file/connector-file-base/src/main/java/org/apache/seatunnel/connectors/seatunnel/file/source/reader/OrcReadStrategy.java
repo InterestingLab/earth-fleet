@@ -113,7 +113,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
      * recycle. 2. lower checkpoint ack delay 3. Support fine-grained concurrency bad: 1. cannot
      * guarantee the order of the data.
      *
-     * @param path 文件路径
+     * @param path file path
      * @return FileSourceSplit set
      */
     @Override
@@ -143,7 +143,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     reader.getNumberOfRows());
             long rowCountPerSplit = rowCountPerSplitByUser;
             if (rowCountPerSplit <= 0) {
-                // 按照文件大小自动分片
+                // auto split by file size
                 long fileSize = reader.getContentLength();
                 long rowCount = reader.getNumberOfRows();
                 long splitCount =
