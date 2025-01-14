@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
 
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.unsafe.types.UTF8String;
@@ -34,11 +35,13 @@ import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -93,6 +96,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                 return Date.valueOf((LocalDate) field);
             case TIMESTAMP:
                 return Timestamp.valueOf((LocalDateTime) field);
+            case TIMESTAMP_TZ:
+                if (field instanceof BigDecimal) {
+                    return field;
+                }
+                return OffsetDateTimeUtils.toBigDecimal((OffsetDateTime) field);
             case TIME:
                 if (field instanceof LocalTime) {
                     return ((LocalTime) field).toNanoOfDay();
@@ -203,6 +211,8 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                 return ((Date) field).toLocalDate();
             case TIMESTAMP:
                 return ((Timestamp) field).toLocalDateTime();
+            case TIMESTAMP_TZ:
+                return OffsetDateTimeUtils.toOffsetDateTime((BigDecimal) field);
             case TIME:
                 if (field instanceof Timestamp) {
                     return ((Timestamp) field).toLocalDateTime().toLocalTime();

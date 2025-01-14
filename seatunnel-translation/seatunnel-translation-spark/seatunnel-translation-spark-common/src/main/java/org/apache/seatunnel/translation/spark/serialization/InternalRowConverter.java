@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
+import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -48,8 +49,10 @@ import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
+import scala.Some;
 import scala.Tuple2;
 import scala.collection.immutable.HashMap.HashTrieMap;
+import scala.collection.immutable.List;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
@@ -60,6 +63,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,6 +105,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case TIMESTAMP:
                 return InstantConverterUtils.toEpochMicro(
                         Timestamp.valueOf((LocalDateTime) field).toInstant());
+            case TIMESTAMP_TZ:
+                return Decimal.apply(OffsetDateTimeUtils.toBigDecimal((OffsetDateTime) field));
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case STRING:
@@ -127,8 +133,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 }
                 return ArrayData.toArrayData(field);
             default:
-                if (field instanceof scala.Some) {
-                    return ((scala.Some<?>) field).get();
+                if (field instanceof Some) {
+                    return ((Some<?>) field).get();
                 }
                 return field;
         }
@@ -216,8 +222,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         Map<Object, Object> newMap = new LinkedHashMap<>(num);
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
-        scala.collection.immutable.List<?> keyList = hashTrieMap.keySet().toList();
-        scala.collection.immutable.List<?> valueList = hashTrieMap.values().toList();
+        List<?> keyList = hashTrieMap.keySet().toList();
+        List<?> valueList = hashTrieMap.values().toList();
         for (int i = 0; i < num; i++) {
             Object key = keyList.apply(i);
             Object value = valueList.apply(i);
@@ -298,6 +304,14 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 }
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field))
                         .toLocalDateTime();
+            case TIMESTAMP_TZ:
+                BigDecimal timeWithDecimal = null;
+                if (field instanceof Decimal) {
+                    timeWithDecimal = ((Decimal) field).toJavaBigDecimal();
+                } else if (field instanceof BigDecimal) {
+                    timeWithDecimal = (BigDecimal) field;
+                }
+                return OffsetDateTimeUtils.toOffsetDateTime(timeWithDecimal);
             case MAP:
                 if (field instanceof MapData) {
                     return reconvertMap((MapData) field, (MapType<?, ?>) dataType);

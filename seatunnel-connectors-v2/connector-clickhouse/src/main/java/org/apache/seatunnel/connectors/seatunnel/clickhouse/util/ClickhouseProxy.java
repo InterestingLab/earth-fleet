@@ -233,7 +233,8 @@ public class ClickhouseProxy {
      * @param table table name of the table.
      * @return clickhouse table info.
      */
-    public ClickhouseTable getClickhouseTable(String database, String table) {
+    public ClickhouseTable getClickhouseTable(
+            ClickHouseRequest<?> clickhouseRequest, String database, String table) {
         String sql =
                 String.format(
                         "select engine,create_table_query,engine_full,data_paths,sorting_key from system.tables where database = '%s' and name = '%s'",

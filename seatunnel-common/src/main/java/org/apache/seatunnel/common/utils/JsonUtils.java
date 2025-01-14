@@ -86,6 +86,10 @@ public class JsonUtils {
         return OBJECT_MAPPER.readTree(obj);
     }
 
+    public static JsonNode readTree(byte[] obj) throws IOException {
+        return OBJECT_MAPPER.readTree(obj);
+    }
+
     /**
      * json representation of object
      *

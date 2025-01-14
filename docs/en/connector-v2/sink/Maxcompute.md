@@ -91,8 +91,8 @@ You can use the following placeholders
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
+`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved. If the `partition_spec` is set, the partition will be deleted and rebuilt.        
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved. If the `partition_spec` is set, the partition will be created.        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
