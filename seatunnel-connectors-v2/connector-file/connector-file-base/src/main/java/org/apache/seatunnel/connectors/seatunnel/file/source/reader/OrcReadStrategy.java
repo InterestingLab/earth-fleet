@@ -94,10 +94,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     private final long DEFAULT_ROW_COUNT = 100000;
     private final long DEFAULT_FILE_SIZE_PER_SPLIT = 1024 * 1024 * 30;
     private long fileSizePerSplitByUser = DEFAULT_FILE_SIZE_PER_SPLIT;
+    private boolean whetherSplitFile = BaseSourceConfigOptions.WHETHER_SPLIT_FILE.defaultValue();
 
     @Override
     public void setPluginConfig(Config pluginConfig) {
         super.setPluginConfig(pluginConfig);
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.WHETHER_SPLIT_FILE.key())) {
+            whetherSplitFile =
+                    pluginConfig.getBoolean(BaseSourceConfigOptions.WHETHER_SPLIT_FILE.key());
+        }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.ROW_COUNT_PER_SPLIT.key())) {
             rowCountPerSplitByUser =
                     pluginConfig.getLong(BaseSourceConfigOptions.ROW_COUNT_PER_SPLIT.key());
@@ -109,9 +114,13 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     }
 
     /**
-     * split a file into many splits: good: 1. lower memory occupy. split read end, the memory can
-     * recycle. 2. lower checkpoint ack delay 3. Support fine-grained concurrency bad: 1. cannot
-     * guarantee the order of the data.
+     * split a file into many splits: <br>
+     * good: <br>
+     * 1. lower memory occupy. split read end, the memory can recycle. <br>
+     * 2. lower checkpoint ack delay <br>
+     * 3. support fine-grained concurrency. <br>
+     * bad: <br>
+     * 1. cannot guarantee the order of the data. <br>
      *
      * @param path file path
      * @return FileSourceSplit set
@@ -126,6 +135,10 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
+        if (!whetherSplitFile) {
+            fileSourceSplits.add(new FileSourceSplit(path));
+            return fileSourceSplits;
+        }
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         ((configuration, userGroupInformation) -> {

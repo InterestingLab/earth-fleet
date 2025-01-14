@@ -191,4 +191,10 @@ public class BaseSourceConfigOptions {
                     .longType()
                     .noDefaultValue()
                     .withDescription("split a file into many splits according to row count");
+
+    public static final Option<Boolean> WHETHER_SPLIT_FILE =
+            Options.key("whether_split_file")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("whether to split a file into many splits. true will split");
 }

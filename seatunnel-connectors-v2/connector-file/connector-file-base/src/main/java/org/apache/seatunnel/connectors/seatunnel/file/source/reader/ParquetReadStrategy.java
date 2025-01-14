@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
@@ -58,6 +59,7 @@ import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -86,9 +88,30 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     private int[] indexes;
 
+    private boolean whetherSplitFile = BaseSourceConfigOptions.WHETHER_SPLIT_FILE.defaultValue();
+
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.WHETHER_SPLIT_FILE.key())) {
+            whetherSplitFile =
+                    pluginConfig.getBoolean(BaseSourceConfigOptions.WHETHER_SPLIT_FILE.key());
+        }
+    }
+
+    /**
+     * parquet file can only split by file block now. <br>
+     * user cannot customise the split count and size. <br>
+     * @param path file path
+     * @return splits
+     */
     @Override
     public Set<FileSourceSplit> getFileSourceSplits(String path) {
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
+        if (!whetherSplitFile) {
+            fileSourceSplits.add(new FileSourceSplit(path));
+            return fileSourceSplits;
+        }
         ParquetMetadata metadata;
         try (ParquetFileReader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
@@ -123,6 +146,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         return fileSourceSplits;
     }
 
+    /**
+     * todo: <br>
+     * In theory, batch column reading can improve reading performance.
+     */
     @Override
     public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {

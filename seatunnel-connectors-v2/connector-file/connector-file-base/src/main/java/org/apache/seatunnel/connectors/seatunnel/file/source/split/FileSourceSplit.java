@@ -19,27 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.ToString;
 
+/**
+ * this class need overrides equals methods as it will be added into HashSet. <br>
+ * If there is no equals method, a file will be read repeatedly in parallelism.
+ */
+@Getter
+@ToString
+@EqualsAndHashCode
 public class FileSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 
-    @Getter private final String tableId;
-    @Getter private final String filePath;
-    // 左闭右闭
+    private final String tableId;
+    private final String filePath;
+    // Left closed right closed
     private Long minRowIndex;
     private Long maxRowIndex;
 
     public long getRows() {
         return maxRowIndex - minRowIndex;
-    }
-
-    public Long getMinRowIndex() {
-        return minRowIndex;
-    }
-
-    public Long getMaxRowIndex() {
-        return maxRowIndex;
     }
 
     public FileSourceSplit(String splitId) {
@@ -67,21 +68,5 @@ public class FileSourceSplit implements SourceSplit {
             return filePath;
         }
         return tableId + "_" + filePath;
-    }
-
-    @Override
-    public String toString() {
-        return "FileSourceSplit{"
-                + "tableId='"
-                + tableId
-                + '\''
-                + ", filePath='"
-                + filePath
-                + '\''
-                + ", minRowIndex="
-                + minRowIndex
-                + ", maxRowIndex="
-                + maxRowIndex
-                + '}';
     }
 }
