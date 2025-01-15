@@ -48,13 +48,16 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
     private static final Logger log = LoggerFactory.getLogger(ZetaSQLEngine.class);
     public static final String ESCAPE_IDENTIFIER = "`";
+    public static Map<String, String> columnNameMapping = new HashMap<>();
 
     private String inputTableName;
     @Nullable private String catalogTableName;
@@ -185,23 +188,36 @@ public class ZetaSQLEngine implements SQLEngine {
         for (SelectItem selectItem : selectItems) {
             if (selectItem.getExpression() instanceof AllColumns) {
                 for (int i = 0; i < inputRowType.getFieldNames().length; i++) {
-                    fieldNames[idx] = cleanEscape(inputRowType.getFieldName(i));
+                    String fieldName = cleanEscape(inputRowType.getFieldName(i));
+                    fieldNames[idx] = fieldName;
                     seaTunnelDataTypes[idx] = inputRowType.getFieldType(i);
                     if (inputColumnsMapping != null) {
                         inputColumnsMapping.set(idx, inputRowType.getFieldName(i));
                     }
+                    columnNameMapping.put(fieldName, fieldName);
                     idx++;
                 }
             } else {
                 Expression expression = selectItem.getExpression();
                 if (selectItem.getAlias() != null) {
-                    String aliasName = selectItem.getAlias().getName();
-                    fieldNames[idx] = cleanEscape(aliasName);
+                    String aliasName = cleanEscape(selectItem.getAlias().getName());
+                    String fieldName;
+                    fieldNames[idx] = aliasName;
+                    if (expression instanceof Column) {
+                        fieldName = cleanEscape(((Column) expression).getColumnName());
+                    } else {
+                        fieldName = cleanEscape(expression.toString());
+                    }
+                    columnNameMapping.put(fieldName, aliasName);
                 } else {
                     if (expression instanceof Column) {
-                        fieldNames[idx] = cleanEscape(((Column) expression).getColumnName());
+                        String fieldName = cleanEscape(((Column) expression).getColumnName());
+                        fieldNames[idx] = fieldName;
+                        columnNameMapping.put(fieldName, fieldName);
                     } else {
-                        fieldNames[idx] = cleanEscape(expression.toString());
+                        String fieldName = cleanEscape(expression.toString());
+                        fieldNames[idx] = fieldName;
+                        columnNameMapping.put(fieldName, fieldName);
                     }
                 }
 
@@ -228,21 +244,9 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public String getChangeColumnName(String columnName) {
-        List<SelectItem<?>> selectItems = selectBody.getSelectItems();
-        for (SelectItem selectItem : selectItems) {
-            if (selectItem.getExpression() instanceof AllColumns) {
-                return columnName;
-            }
-            Expression expression = selectItem.getExpression();
-            if (columnName.equals(cleanEscape(((Column) expression).getColumnName()))
-                    || columnName.equals(cleanEscape(expression.toString()))) {
-                if (selectItem.getAlias() != null) {
-                    String aliasName = selectItem.getAlias().getName();
-                    return cleanEscape(aliasName);
-                }
-            }
+        if (columnNameMapping.containsKey(columnName)) {
+            return columnNameMapping.get(columnName);
         }
-
         return columnName;
     }
 
