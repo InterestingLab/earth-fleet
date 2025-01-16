@@ -86,7 +86,7 @@ import static org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWrit
 public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
 
-    private int batchReadRows = 1024;
+    private static final int BATCH_READ_ROWS = 1024;
 
     /** user can specified row count per split */
     private long rowCountPerSplitByUser = 0;
