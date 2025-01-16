@@ -219,7 +219,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         String path = split.getFilePath();
         String tableId = split.getTableId();
         if (split.getMinRowIndex() == null || split.getMaxRowIndex() == null) {
-            log.warn(
+            log.debug(
                     "minRowIndex or maxRowIndex is null, use fileBaseRead. fileSourceSplit:{}",
                     split);
             read(path, tableId, output);
