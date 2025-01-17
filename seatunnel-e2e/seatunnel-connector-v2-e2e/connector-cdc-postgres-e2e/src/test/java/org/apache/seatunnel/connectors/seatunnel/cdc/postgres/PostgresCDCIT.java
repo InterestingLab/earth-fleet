@@ -407,8 +407,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             log.info("****************** container logs start ******************");
             String containerLogs = container.getServerLogs();
             log.info(containerLogs);
-            // pg cdc logs contain ERROR
-            // Assertions.assertFalse(containerLogs.contains("ERROR"));
+            // pg cdc logs contain NullPointerException
+            Assertions.assertFalse(containerLogs.contains("NullPointerException"));
             log.info("****************** container logs end ******************");
         } finally {
             // Clear related content to ensure that multiple operations are not affected
