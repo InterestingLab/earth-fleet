@@ -38,7 +38,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
 
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+        super(config, inputCatalogTable);
         this.config = config;
         initOutputFields(
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType(),

@@ -73,7 +73,7 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
                     if (tableConfig != null) {
                         transformMap.put(tableId, buildTransform(inputCatalogTable, tableConfig));
                     } else {
-                        transformMap.put(tableId, new IdentityTransform(inputCatalogTable));
+                        transformMap.put(tableId, new IdentityTransform(config, inputCatalogTable));
                     }
                 });
 
@@ -112,8 +112,8 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
             return "Identity";
         }
 
-        public IdentityTransform(CatalogTable catalogTable) {
-            super(catalogTable);
+        public IdentityTransform(ReadonlyConfig config, CatalogTable catalogTable) {
+            super(config, catalogTable);
             this.catalogTable = catalogTable;
         }
 

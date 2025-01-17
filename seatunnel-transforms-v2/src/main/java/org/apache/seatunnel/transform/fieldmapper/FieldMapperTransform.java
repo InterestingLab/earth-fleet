@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.fieldmapper;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -48,9 +49,9 @@ public class FieldMapperTransform extends AbstractCatalogSupportMapTransform {
     private List<Integer> needReaderColIndex;
 
     public FieldMapperTransform(
-            @NonNull FieldMapperTransformConfig config, @NonNull CatalogTable catalogTable) {
-        super(catalogTable);
-        this.config = config;
+            @NonNull ReadonlyConfig readonlyConfig, @NonNull CatalogTable catalogTable) {
+        super(readonlyConfig, catalogTable);
+        this.config = FieldMapperTransformConfig.of(readonlyConfig);
         Map<String, String> fieldMapper = config.getFieldMapper();
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         List<String> notFoundField =

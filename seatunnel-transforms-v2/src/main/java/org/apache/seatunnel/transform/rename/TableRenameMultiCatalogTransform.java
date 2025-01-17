@@ -40,6 +40,6 @@ public class TableRenameMultiCatalogTransform extends AbstractMultiCatalogMapTra
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable table, ReadonlyConfig config) {
-        return new TableRenameTransform(TableRenameConfig.of(config), table);
+        return new TableRenameTransform(config, table);
     }
 }

@@ -16,12 +16,16 @@
  */
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
+
+import org.apache.groovy.parser.antlr4.util.StringUtils;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -37,14 +41,39 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
 
     protected volatile CatalogTable outputCatalogTable;
 
-    public AbstractSeaTunnelTransform(@NonNull CatalogTable inputCatalogTable) {
-        this(inputCatalogTable, TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
+    protected String inputTableName;
+
+    protected String outTableName;
+
+    @Override
+    public void open() {}
+
+    public AbstractSeaTunnelTransform(
+            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+        this(
+                config,
+                inputCatalogTable,
+                TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
     }
 
     public AbstractSeaTunnelTransform(
-            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay rowErrorHandleWay) {
-        this.inputCatalogTable = inputCatalogTable;
+            @NonNull ReadonlyConfig config,
+            @NonNull CatalogTable catalogTable,
+            ErrorHandleWay rowErrorHandleWay) {
+        this.inputCatalogTable = catalogTable;
         this.rowErrorHandleWay = rowErrorHandleWay;
+        List<String> pluginInputIdentifiers = config.get(CommonOptions.PLUGIN_INPUT);
+        String pluginOutIdentifiers = config.get(CommonOptions.PLUGIN_OUTPUT);
+        if (pluginInputIdentifiers != null && !pluginInputIdentifiers.isEmpty()) {
+            this.inputTableName = pluginInputIdentifiers.get(0);
+        } else {
+            this.inputTableName = catalogTable.getTableId().getTableName();
+        }
+        if (!StringUtils.isEmpty(pluginOutIdentifiers)) {
+            this.outTableName = pluginOutIdentifiers;
+        } else {
+            this.outTableName = catalogTable.getTableId().getTableName();
+        }
     }
 
     public CatalogTable getProducedCatalogTable() {

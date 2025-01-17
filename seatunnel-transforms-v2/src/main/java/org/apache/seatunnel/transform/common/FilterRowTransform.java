@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -25,8 +26,9 @@ import lombok.NonNull;
 
 public abstract class FilterRowTransform extends AbstractCatalogSupportMapTransform {
 
-    public FilterRowTransform(@NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+    public FilterRowTransform(
+            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(config, inputCatalogTable);
     }
 
     @Override

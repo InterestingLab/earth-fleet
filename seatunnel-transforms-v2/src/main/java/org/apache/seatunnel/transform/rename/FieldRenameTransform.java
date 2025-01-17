@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.rename;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -59,9 +60,9 @@ public class FieldRenameTransform extends AbstractCatalogSupportMapTransform {
     private final FieldRenameConfig config;
     private TableSchemaChangeEventHandler tableSchemaChangeEventHandler;
 
-    public FieldRenameTransform(FieldRenameConfig config, CatalogTable table) {
-        super(table);
-        this.config = config;
+    public FieldRenameTransform(ReadonlyConfig readonlyConfig, CatalogTable table) {
+        super(readonlyConfig, table);
+        this.config = FieldRenameConfig.of(readonlyConfig);
         this.inputTable = table;
         this.tableSchemaChangeEventHandler = new TableSchemaChangeEventDispatcher();
     }

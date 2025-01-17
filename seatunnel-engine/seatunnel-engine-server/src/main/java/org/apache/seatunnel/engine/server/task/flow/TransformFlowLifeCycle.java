@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
@@ -48,22 +51,31 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     private final List<SeaTunnelTransform<T>> transform;
 
+    private final List<String> pluginOutputList;
+
+    private final List<String> transformNames;
+
     private final Collector<Record<?>> collector;
+
+    private MetricsContext metricsContext;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
             SeaTunnelTask runningTask,
             Collector<Record<?>> collector,
-            CompletableFuture<Void> completableFuture) {
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext) {
         super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();
+        this.pluginOutputList = action.getPluginOutputs();
+        this.transformNames = action.getTransformNames();
         this.collector = collector;
+        this.metricsContext = metricsContext;
     }
 
     @Override
     public void open() throws Exception {
-        super.open();
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
@@ -136,8 +148,11 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
         List<T> dataList = new ArrayList<>();
         dataList.add(inputData);
-
+        int index = 0;
         for (SeaTunnelTransform<T> transformer : transform) {
+            String pluginOutput = pluginOutputList.get(index);
+            String metricName = transformNames.get(index);
+            index++;
             List<T> nextInputDataList = new ArrayList<>();
             if (transformer instanceof SeaTunnelFlatMapTransform) {
                 SeaTunnelFlatMapTransform<T> transformDecorator =
@@ -151,6 +166,15 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                             outputDataArray);
                     if (CollectionUtils.isNotEmpty(outputDataArray)) {
                         nextInputDataList.addAll(outputDataArray);
+                        for (T outputData : outputDataArray) {
+                            if (outputData instanceof SeaTunnelRow) {
+                                String tableId =
+                                        pluginOutput == null
+                                                ? ((SeaTunnelRow) outputData).getTableId()
+                                                : pluginOutput;
+                                updateMetric(metricName, tableId);
+                            }
+                        }
                     }
                 }
             } else if (transformer instanceof SeaTunnelMapTransform) {
@@ -168,19 +192,19 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         continue;
                     }
                     nextInputDataList.add(outputData);
+                    if (outputData instanceof SeaTunnelRow) {
+                        updateMetric(metricName, ((SeaTunnelRow) outputData).getTableId());
+                    }
                 }
             }
 
             dataList = nextInputDataList;
         }
-
         return dataList;
     }
 
     @Override
-    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        // nothing
-    }
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {}
 
     @Override
     public void close() throws IOException {
@@ -196,5 +220,18 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
         }
         super.close();
+    }
+
+    private void updateMetric(String metricName, String tableId) {
+        StringBuilder metricNameBuilder = new StringBuilder();
+        metricNameBuilder
+                .append(MetricNames.TRANSFORM_OUTPUT_COUNT)
+                .append("#")
+                .append(metricName)
+                .append("#")
+                .append(tableId);
+        if (metricsContext != null) {
+            metricsContext.counter(metricNameBuilder.toString()).inc();
+        }
     }
 }

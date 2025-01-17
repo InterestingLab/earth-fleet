@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.rename;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 public class TableRenameTransformTest {
@@ -93,7 +95,13 @@ public class TableRenameTransformTest {
                         DEFAULT_TABLE.getTableId(),
                         PhysicalColumn.of("f4", BasicType.LONG_TYPE, null, null, true, null, null));
 
-        TableRenameConfig config = new TableRenameConfig().setConvertCase(ConvertCase.LOWER);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("convert_case", "LOWER");
+                            }
+                        });
 
         TableRenameTransform transform = new TableRenameTransform(config, DEFAULT_TABLE);
         List<CatalogTable> outputCatalogTable = transform.getProducedCatalogTables();
@@ -106,7 +114,14 @@ public class TableRenameTransformTest {
         Assertions.assertEquals(
                 "database-x.schema-x.table-x", outputEvent.tablePath().getFullName());
 
-        config = new TableRenameConfig().setConvertCase(ConvertCase.UPPER);
+        config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("convert_case", "UPPER");
+                            }
+                        });
+
         transform = new TableRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTables();
         outputRow = transform.map(inputRow);
@@ -117,8 +132,15 @@ public class TableRenameTransformTest {
         Assertions.assertEquals("DATABASE-X.SCHEMA-X.TABLE-X", outputRow.getTableId());
         Assertions.assertEquals(
                 "DATABASE-X.SCHEMA-X.TABLE-X", outputEvent.tablePath().getFullName());
+        config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("prefix", "user-");
+                                put("suffix", "-table");
+                            }
+                        });
 
-        config = new TableRenameConfig().setPrefix("user-").setSuffix("-table");
         transform = new TableRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTables();
         outputRow = transform.map(inputRow);
@@ -131,12 +153,14 @@ public class TableRenameTransformTest {
                 "Database-x.Schema-x.user-Table-x-table", outputEvent.tablePath().getFullName());
 
         config =
-                new TableRenameConfig()
-                        .setReplacementsWithRegex(
-                                Arrays.asList(
-                                        new TableRenameConfig.ReplacementsWithRegex("Table", "t1"),
-                                        new TableRenameConfig.ReplacementsWithRegex(
-                                                "Table", "t2")));
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        "replacements_with_regex",
+                                        "[{\"replace_from\" : \"Table\", \"replace_to\" : \"t1\"},{\"replace_from\" : \"Table\", \"replace_to\" : \"t2\"}]");
+                            }
+                        });
         transform = new TableRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTables();
         outputRow = transform.map(inputRow);

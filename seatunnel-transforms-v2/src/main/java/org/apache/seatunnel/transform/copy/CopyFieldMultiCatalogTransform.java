@@ -40,6 +40,6 @@ public class CopyFieldMultiCatalogTransform extends AbstractMultiCatalogMapTrans
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new CopyFieldTransform(CopyTransformConfig.of(config), inputCatalogTable);
+        return new CopyFieldTransform(config, inputCatalogTable);
     }
 }

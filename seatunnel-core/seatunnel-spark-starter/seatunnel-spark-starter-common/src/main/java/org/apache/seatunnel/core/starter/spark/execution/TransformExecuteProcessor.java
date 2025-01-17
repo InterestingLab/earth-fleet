@@ -112,9 +112,11 @@ public class TransformExecuteProcessor
                                         e -> e,
                                         (a, b) -> b,
                                         LinkedHashMap::new));
+        int index = 0;
         for (int i = 0; i < plugins.size(); i++) {
             try {
                 Config pluginConfig = pluginConfigs.get(i);
+                ReadonlyConfig options = ReadonlyConfig.fromConfig(pluginConfig);
                 DatasetTableInfo dataset =
                         fromSourceTable(
                                         pluginConfig,
@@ -130,7 +132,12 @@ public class TransformExecuteProcessor
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
                 SeaTunnelTransform transform = factory.createTransform(context).createTransform();
 
-                Dataset<Row> inputDataset = sparkTransform(transform, dataset);
+                String metricName =
+                        String.format("Transform[%s]-%s", transform.getPluginName(), index++);
+                String pluginOutput = options.get(PLUGIN_OUTPUT);
+
+                Dataset<Row> inputDataset =
+                        sparkTransform(transform, dataset, metricName, pluginOutput);
                 registerInputTempView(pluginConfig, inputDataset);
                 String pluginOutputIdentifier =
                         ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT);
@@ -151,7 +158,11 @@ public class TransformExecuteProcessor
         return new ArrayList<>(outputTables.values());
     }
 
-    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {
+    private Dataset<Row> sparkTransform(
+            SeaTunnelTransform transform,
+            DatasetTableInfo tableInfo,
+            String metricName,
+            String pluginOutput) {
         MultiTableManager inputManager =
                 new MultiTableManager(tableInfo.getCatalogTables().toArray(new CatalogTable[0]));
         MultiTableManager outputManager =

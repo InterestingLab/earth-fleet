@@ -41,7 +41,7 @@ public class FilterRowKindTransform extends FilterRowTransform {
 
     public FilterRowKindTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+        super(config, inputCatalogTable);
         initConfig(config);
     }
 

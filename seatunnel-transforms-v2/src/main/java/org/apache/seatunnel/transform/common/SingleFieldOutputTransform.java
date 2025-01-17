@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -38,8 +39,9 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportM
     private int fieldIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
 
-    public SingleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+    public SingleFieldOutputTransform(
+            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(config, inputCatalogTable);
     }
 
     @Override

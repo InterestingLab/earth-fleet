@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.split;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -35,11 +36,9 @@ public class SplitTransform extends MultipleFieldOutputTransform {
     private final SplitTransformConfig splitTransformConfig;
     private final int splitFieldIndex;
 
-    public SplitTransform(
-            @NonNull SplitTransformConfig splitTransformConfig,
-            @NonNull CatalogTable catalogTable) {
-        super(catalogTable);
-        this.splitTransformConfig = splitTransformConfig;
+    public SplitTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
+        super(config, catalogTable);
+        this.splitTransformConfig = SplitTransformConfig.of(config);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         try {
             splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());

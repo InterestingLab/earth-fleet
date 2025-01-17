@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
@@ -28,17 +29,21 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractCatalogSupportMapTransform
         extends AbstractSeaTunnelTransform<SeaTunnelRow, SeaTunnelRow>
         implements SeaTunnelMapTransform<SeaTunnelRow> {
-    public AbstractCatalogSupportMapTransform(@NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+    public AbstractCatalogSupportMapTransform(
+            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+        super(config, inputCatalogTable);
     }
 
     public AbstractCatalogSupportMapTransform(
-            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay rowErrorHandleWay) {
-        super(inputCatalogTable, rowErrorHandleWay);
+            @NonNull ReadonlyConfig config,
+            @NonNull CatalogTable inputCatalogTable,
+            ErrorHandleWay rowErrorHandleWay) {
+        super(config, inputCatalogTable, rowErrorHandleWay);
     }
 
     @Override
     public SeaTunnelRow map(SeaTunnelRow row) {
-        return transform(row);
+        SeaTunnelRow result = transform(row);
+        return result;
     }
 }

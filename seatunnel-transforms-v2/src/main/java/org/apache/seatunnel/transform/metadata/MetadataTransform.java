@@ -45,7 +45,7 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
     private Map<String, String> metadataFieldMapping;
 
     public MetadataTransform(ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
-        super(inputCatalogTable);
+        super(config, inputCatalogTable);
         initOutputFields(inputCatalogTable, config.get(MetadataTransformConfig.METADATA_FIELDS));
     }
 

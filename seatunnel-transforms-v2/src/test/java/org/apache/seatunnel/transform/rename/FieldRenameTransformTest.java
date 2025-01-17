@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.rename;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class FieldRenameTransformTest {
@@ -103,7 +105,14 @@ public class FieldRenameTransformTest {
         AlterTableDropColumnEvent dropColumnEvent =
                 new AlterTableDropColumnEvent(DEFAULT_TABLE.getTableId(), "f5");
 
-        FieldRenameConfig config = new FieldRenameConfig().setConvertCase(ConvertCase.LOWER);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("convert_case", "LOWER");
+                            }
+                        });
+
         FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
         CatalogTable outputCatalogTable = transform.getProducedCatalogTable();
         AlterTableAddColumnEvent outputAddEvent =
@@ -137,7 +146,13 @@ public class FieldRenameTransformTest {
         Assertions.assertEquals("f5", outputChangeEvent.getColumn().getName());
         Assertions.assertEquals("f5", outputDropEvent.getColumn());
 
-        config = new FieldRenameConfig().setConvertCase(ConvertCase.UPPER);
+        config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("convert_case", "UPPER");
+                            }
+                        });
         transform = new FieldRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTable();
         outputAddEvent = (AlterTableAddColumnEvent) transform.mapSchemaChangeEvent(addColumnEvent);
@@ -169,7 +184,15 @@ public class FieldRenameTransformTest {
         Assertions.assertEquals("f5", outputChangeEvent.getColumn().getName());
         Assertions.assertEquals("F5", outputDropEvent.getColumn());
 
-        config = new FieldRenameConfig().setPrefix("p-").setSuffix("-s");
+        config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("prefix", "p-");
+                                put("suffix", "-s");
+                            }
+                        });
+
         transform = new FieldRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTable();
         outputAddEvent = (AlterTableAddColumnEvent) transform.mapSchemaChangeEvent(addColumnEvent);
@@ -202,13 +225,15 @@ public class FieldRenameTransformTest {
         Assertions.assertEquals("p-f5-s", outputDropEvent.getColumn());
 
         config =
-                new FieldRenameConfig()
-                        .setReplacementsWithRegex(
-                                Arrays.asList(
-                                        new FieldRenameConfig.ReplacementsWithRegex(
-                                                "f1", "t1", true),
-                                        new FieldRenameConfig.ReplacementsWithRegex(
-                                                "f1", "t2", true)));
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        "replacements_with_regex",
+                                        "[{\"replace_from\" : \"f1\", \"replace_to\" : \"t1\"},{\"replace_from\" : "
+                                                + "\"f1\", \"replace_to\" : \"t2\"}]");
+                            }
+                        });
         transform = new FieldRenameTransform(config, DEFAULT_TABLE);
         outputCatalogTable = transform.getProducedCatalogTable();
         outputAddEvent = (AlterTableAddColumnEvent) transform.mapSchemaChangeEvent(addColumnEvent);

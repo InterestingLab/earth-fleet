@@ -40,6 +40,6 @@ public class FieldMapperMultiCatalogTransform extends AbstractMultiCatalogMapTra
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new FieldMapperTransform(FieldMapperTransformConfig.of(config), inputCatalogTable);
+        return new FieldMapperTransform(config, inputCatalogTable);
     }
 }

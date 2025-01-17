@@ -48,7 +48,7 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable table, ReadonlyConfig config) {
-        return new TableMergeTransform(TableMergeConfig.of(config), table);
+        return new TableMergeTransform(config, table);
     }
 
     @Override
