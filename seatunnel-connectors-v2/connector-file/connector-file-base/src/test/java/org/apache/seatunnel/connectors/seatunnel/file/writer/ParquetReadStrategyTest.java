@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
@@ -35,6 +36,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.orc.StripeInformation;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -53,12 +56,166 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
 public class ParquetReadStrategyTest {
+
+    public static List<StripeInformation> autoGenData(String filePath, int count)
+            throws IOException {
+        // Define the schema (for example, a single column with a string type)
+
+        String schemaString =
+                "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"salary\",\"type\":\"double\"},{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
+        Schema schema = new Schema.Parser().parse(schemaString);
+
+        Configuration conf = new Configuration();
+
+        Path file = new Path(filePath);
+        long startTs = System.currentTimeMillis();
+        try (ParquetWriter<GenericRecord> writer =
+                AvroParquetWriter.<GenericRecord>builder(file)
+                        .withSchema(schema)
+                        .withConf(conf)
+                        .withCompressionCodec(CompressionCodecName.SNAPPY)
+                        .build(); ) {
+            GenericRecord record1 = new GenericData.Record(schema);
+            record1.put("id", 1);
+            record1.put("name", "Alice");
+            record1.put("salary", 50000.0);
+            GenericArray<Utf8> skills1 =
+                    new GenericData.Array<>(2, schema.getField("skills").schema());
+            skills1.add(new Utf8("Java"));
+            skills1.add(new Utf8("Python"));
+            record1.put("skills", skills1);
+            writer.write(record1);
+
+            Random random = new Random();
+            for (int i = 1; i < count; i++) {
+                GenericRecord record2 = new GenericData.Record(schema);
+                record2.put("id", i);
+                record2.put("name", String.valueOf(random.nextInt()));
+                record2.put("salary", random.nextDouble());
+                GenericArray<Utf8> skills2 =
+                        new GenericData.Array<>(2, schema.getField("skills").schema());
+                skills2.add(new Utf8(String.valueOf(random.nextInt())));
+                skills2.add(new Utf8("Python"));
+                record2.put("skills", skills2);
+                writer.write(record2);
+            }
+        }
+        System.out.println(
+                "write file success. count:"
+                        + count
+                        + ", useTime:"
+                        + (System.currentTimeMillis() - startTs));
+        return null;
+    }
+
+    public static void deleteFile(String filePath) {
+        File file = new File(filePath);
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testParquetGetSplits() throws IOException {
+        String file = "d:/local_output.parquet";
+        deleteFile(file);
+        int rowCount = 10000000;
+        if (!new File(file).exists()) {
+            autoGenData(file, rowCount);
+        }
+        try {
+            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            parquetReadStrategy.init(localConf);
+
+            Set<FileSourceSplit> set = parquetReadStrategy.getFileSourceSplits(file);
+            List<FileSourceSplit> list =
+                    set.stream()
+                            .sorted((o1, o2) -> (int) (o1.getMinRowIndex() - o2.getMinRowIndex()))
+                            .collect(Collectors.toList());
+            for (FileSourceSplit fileSourceSplit : list) {
+                System.out.println(fileSourceSplit);
+            }
+            // file size: 9m
+            Assertions.assertTrue(set.size() > 1);
+            Assertions.assertEquals(list.get(1).getMinRowIndex(), list.get(0).getMaxRowIndex());
+
+            SeaTunnelRowType seaTunnelRowTypeInfo =
+                    parquetReadStrategy.getSeaTunnelRowTypeInfo(file);
+
+            long rowSize = 0;
+            SeaTunnelRow firstRow = null;
+            SeaTunnelRow lastRow = null;
+            for (int i = 0; i < list.size(); i++) {
+                // 读取单个分片128m大概需要6s多
+                FileSourceSplit split = list.get(i);
+                TestCollector testCollector = new TestCollector();
+                long l1 = System.currentTimeMillis();
+                parquetReadStrategy.read(split, testCollector);
+                long l2 = System.currentTimeMillis();
+                System.out.println("read split use time " + (l2 - l1));
+                rowSize += testCollector.rows.size();
+                if (i == 0) {
+                    firstRow = testCollector.getRows().get(0);
+                }
+                if (i == list.size() - 1) {
+                    lastRow = testCollector.getRows().get(testCollector.rows.size() - 1);
+                }
+            }
+            Assertions.assertEquals(rowCount, rowSize);
+
+            List<SeaTunnelRow> sl = test1(parquetReadStrategy, file, rowCount);
+
+            Assertions.assertEquals(firstRow.getField(0), sl.get(0).getField(0));
+            Assertions.assertEquals(lastRow.getField(1), sl.get(1).getField(1));
+
+        } finally {
+            deleteFile(file);
+        }
+    }
+
+    public List<SeaTunnelRow> test1(
+            ParquetReadStrategy parquetReadStrategy, String file, long rowCount)
+            throws IOException {
+        TestCollector testCollector1 = new TestCollector();
+        long l1 = System.currentTimeMillis();
+        parquetReadStrategy.read(file, "", testCollector1);
+        long l2 = System.currentTimeMillis();
+        System.out.println("read file use time " + (l2 - l1));
+        Assertions.assertEquals(rowCount, testCollector1.rows.size());
+        return Lists.newArrayList(
+                testCollector1.rows.get(0),
+                testCollector1.getRows().get(testCollector1.rows.size() - 1));
+    }
+
+    @Test
+    public void testParquetRead3() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/hive.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
+        TestCollector testCollector = new TestCollector();
+        Set<FileSourceSplit> set = parquetReadStrategy.getFileSourceSplits(path);
+        for (FileSourceSplit split : set) {
+            parquetReadStrategy.read(split, testCollector);
+        }
+        Assertions.assertEquals(2, testCollector.rows.size());
+    }
+
     @Test
     public void testParquetRead1() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
@@ -72,6 +229,12 @@ public class ParquetReadStrategyTest {
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
+        TestCollector testCollector1 = new TestCollector();
+        Set<FileSourceSplit> set = parquetReadStrategy.getFileSourceSplits(path);
+        for (FileSourceSplit split : set) {
+            parquetReadStrategy.read(split, testCollector1);
+        }
+        Assertions.assertEquals(testCollector.getRows().size(), testCollector1.rows.size());
     }
 
     @Test
@@ -87,6 +250,13 @@ public class ParquetReadStrategyTest {
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
+        Assertions.assertEquals(2, testCollector.rows.size());
+        TestCollector testCollector1 = new TestCollector();
+        Set<FileSourceSplit> set = parquetReadStrategy.getFileSourceSplits(path);
+        for (FileSourceSplit split : set) {
+            parquetReadStrategy.read(split, testCollector1);
+        }
+        Assertions.assertEquals(testCollector.getRows().size(), testCollector1.rows.size());
     }
 
     @Test
