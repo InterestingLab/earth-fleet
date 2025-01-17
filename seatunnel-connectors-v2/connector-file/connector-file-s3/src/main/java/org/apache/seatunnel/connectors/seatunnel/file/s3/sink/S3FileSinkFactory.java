@@ -106,7 +106,9 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.SINGLE_FILE_MODE)
                 .optional(BaseSinkConfig.BATCH_SIZE)
                 .optional(BaseSinkConfig.TMP_PATH)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

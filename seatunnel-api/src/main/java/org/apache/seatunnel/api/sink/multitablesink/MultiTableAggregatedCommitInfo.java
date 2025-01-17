@@ -27,4 +27,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class MultiTableAggregatedCommitInfo implements Serializable {
     private Map<String, Object> commitInfo;
+
+    private Map<String, Boolean> hasWriteData;
 }

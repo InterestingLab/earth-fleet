@@ -57,7 +57,9 @@ public class KuduSinkFactory implements TableSinkFactory {
                 .optional(KuduSinkConfig.IGNORE_DUPLICATE)
                 .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .conditional(
                         KuduSinkConfig.FLUSH_MODE,
                         Arrays.asList(AUTO_FLUSH_BACKGROUND.name(), MANUAL_FLUSH.name()),

@@ -61,7 +61,9 @@ public class EmailSinkFactory implements TableSinkFactory {
                         EMAIL_AUTHORIZATION_CODE,
                         EMAIL_MESSAGE_HEADLINE,
                         EMAIL_MESSAGE_CONTENT)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

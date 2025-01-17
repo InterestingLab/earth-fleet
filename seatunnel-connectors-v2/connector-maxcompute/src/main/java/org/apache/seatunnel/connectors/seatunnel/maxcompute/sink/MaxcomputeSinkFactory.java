@@ -59,7 +59,8 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                         DATA_SAVE_MODE,
                         SAVE_MODE_CREATE_TEMPLATE,
                         CUSTOM_SQL,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

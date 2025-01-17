@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
@@ -40,6 +41,9 @@ public class WeChatSinkFactory implements TableSinkFactory {
                 .optional(WeChatSinkConfig.RETRY)
                 .optional(WeChatSinkConfig.RETRY_BACKOFF_MAX_MS)
                 .optional(WeChatSinkConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+                .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

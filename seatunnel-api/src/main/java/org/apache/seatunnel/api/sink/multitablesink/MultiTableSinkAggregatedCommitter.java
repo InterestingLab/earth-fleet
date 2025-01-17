@@ -52,20 +52,35 @@ public class MultiTableSinkAggregatedCommitter
     private void initResourceManager() {
         for (String tableIdentifier : aggCommitters.keySet()) {
             SinkAggregatedCommitter<?, ?> aggCommitter = aggCommitters.get(tableIdentifier);
-            if (!(aggCommitter instanceof SupportMultiTableSinkAggregatedCommitter)) {
-                return;
+            if (aggCommitter instanceof MultiTablePreparedSinkAggregatedCommitter) {
+                MultiTablePreparedSinkAggregatedCommitter preparedSinkCommitter =
+                        (MultiTablePreparedSinkAggregatedCommitter) aggCommitter;
+                resourceManager =
+                        preparedSinkCommitter.initMultiTableResourceManager(
+                                aggCommitters.size(), 1);
+
+            } else {
+                if (!(aggCommitter instanceof SupportMultiTableSinkAggregatedCommitter)) {
+                    return;
+                }
+                resourceManager =
+                        ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
+                                .initMultiTableResourceManager(aggCommitters.size(), 1);
             }
-            resourceManager =
-                    ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
-                            .initMultiTableResourceManager(aggCommitters.size(), 1);
             break;
         }
         if (resourceManager != null) {
             for (String tableIdentifier : aggCommitters.keySet()) {
                 SinkAggregatedCommitter<?, ?> aggCommitter = aggCommitters.get(tableIdentifier);
-                aggCommitter.init();
-                ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
-                        .setMultiTableResourceManager(resourceManager, 0);
+                if (!(aggCommitter instanceof MultiTablePreparedSinkAggregatedCommitter)) {
+                    aggCommitter.init();
+                    ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
+                            .setMultiTableResourceManager(resourceManager, 0);
+                } else {
+                    MultiTablePreparedSinkAggregatedCommitter preparedSinkCommitter =
+                            (MultiTablePreparedSinkAggregatedCommitter) aggCommitter;
+                    preparedSinkCommitter.setMultiTableResourceManager(resourceManager, 0);
+                }
             }
         }
     }
@@ -79,6 +94,7 @@ public class MultiTableSinkAggregatedCommitter
             if (sinkCommitter != null) {
                 List commitInfo =
                         aggregatedCommitInfo.stream()
+                                .filter(c -> c.getHasWriteData().get(sinkIdentifier))
                                 .map(
                                         multiTableCommitInfo ->
                                                 multiTableCommitInfo
@@ -86,14 +102,22 @@ public class MultiTableSinkAggregatedCommitter
                                                         .get(sinkIdentifier))
                                 .filter(Objects::nonNull)
                                 .collect(Collectors.toList());
-                List errCommitList = sinkCommitter.commit(commitInfo);
-                if (errCommitList.size() == 0) {
+                List errCommitList;
+                if (commitInfo.isEmpty()) {
+                    errCommitList = new ArrayList<>();
+                } else {
+                    errCommitList = sinkCommitter.commit(commitInfo);
+                }
+                if (errCommitList.isEmpty()) {
                     continue;
                 }
 
                 for (int i = 0; i < errCommitList.size(); i++) {
                     if (errorList.size() < i + 1) {
-                        errorList.add(i, new MultiTableAggregatedCommitInfo(new HashMap<>()));
+                        errorList.add(
+                                i,
+                                new MultiTableAggregatedCommitInfo(
+                                        new HashMap<>(), new HashMap<>()));
                     }
                     errorList.get(i).getCommitInfo().put(sinkIdentifier, errCommitList.get(i));
                 }
@@ -105,6 +129,7 @@ public class MultiTableSinkAggregatedCommitter
     @Override
     public MultiTableAggregatedCommitInfo combine(List<MultiTableCommitInfo> commitInfos) {
         Map<String, Object> commitInfo = new HashMap<>();
+        Map<String, Boolean> hasWriteData = new HashMap<>();
         for (String sinkIdentifier : aggCommitters.keySet()) {
             SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
             if (sinkCommitter != null) {
@@ -122,10 +147,16 @@ public class MultiTableSinkAggregatedCommitter
                                                                                         sinkIdentifier))
                                                         .map(Map.Entry::getValue))
                                 .collect(Collectors.toList());
-                commitInfo.put(sinkIdentifier, sinkCommitter.combine(commits));
+                if (!commits.isEmpty()) {
+                    commitInfo.put(sinkIdentifier, sinkCommitter.combine(commits));
+                    hasWriteData.put(sinkIdentifier, true);
+                } else {
+                    commitInfo.put(sinkIdentifier, null);
+                    hasWriteData.put(sinkIdentifier, false);
+                }
             }
         }
-        return new MultiTableAggregatedCommitInfo(commitInfo);
+        return new MultiTableAggregatedCommitInfo(commitInfo, hasWriteData);
     }
 
     @Override
@@ -136,6 +167,7 @@ public class MultiTableSinkAggregatedCommitter
             if (sinkCommitter != null) {
                 List commitInfo =
                         aggregatedCommitInfo.stream()
+                                .filter(c -> c.getHasWriteData().get(sinkIdentifier))
                                 .map(
                                         multiTableCommitInfo ->
                                                 multiTableCommitInfo

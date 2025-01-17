@@ -55,10 +55,13 @@ public class MultiTableSink
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
+    private final int multiTableWriterTtl;
 
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
         this.replicaNum = context.getOptions().get(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA);
+        this.multiTableWriterTtl =
+                context.getOptions().get(SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC);
     }
 
     @Override
@@ -76,9 +79,22 @@ public class MultiTableSink
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 String tableIdentifier = tablePath.toString();
-                writers.put(
-                        SinkIdentifier.of(tableIdentifier, index),
-                        sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
+                if (multiTableWriterTtl < 0) {
+                    writers.put(
+                            SinkIdentifier.of(tableIdentifier, index),
+                            sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
+                } else {
+                    writers.put(
+                            SinkIdentifier.of(tableIdentifier, index),
+                            new MultiTableTtlWriter(
+                                    writers,
+                                    tableIdentifier,
+                                    index,
+                                    replicaNum,
+                                    sink,
+                                    context,
+                                    multiTableWriterTtl));
+                }
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
@@ -104,15 +120,43 @@ public class MultiTableSink
                                 .filter(Objects::nonNull)
                                 .flatMap(Collection::stream)
                                 .collect(Collectors.toList());
-                if (state.isEmpty()) {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
+                if (multiTableWriterTtl < 0) {
+                    if (state.isEmpty()) {
+                        writers.put(
+                                sinkIdentifier,
+                                sink.createWriter(
+                                        new SinkContextProxy(index, replicaNum, context)));
+                    } else {
+                        writers.put(
+                                sinkIdentifier,
+                                sink.restoreWriter(
+                                        new SinkContextProxy(index, replicaNum, context), state));
+                    }
                 } else {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.restoreWriter(
-                                    new SinkContextProxy(index, replicaNum, context), state));
+                    if (state.isEmpty()) {
+                        writers.put(
+                                SinkIdentifier.of(tablePath.toString(), index),
+                                new MultiTableTtlWriter(
+                                        writers,
+                                        tablePath.toString(),
+                                        index,
+                                        replicaNum,
+                                        sink,
+                                        context,
+                                        multiTableWriterTtl));
+                    } else {
+                        writers.put(
+                                SinkIdentifier.of(tablePath.toString(), index),
+                                new MultiTableTtlWriter(
+                                        writers,
+                                        tablePath.toString(),
+                                        index,
+                                        replicaNum,
+                                        sink,
+                                        context,
+                                        multiTableWriterTtl,
+                                        state));
+                    }
                 }
                 sinkWritersContext.put(sinkIdentifier, context);
             }
@@ -153,10 +197,16 @@ public class MultiTableSink
         Map<String, SinkAggregatedCommitter<?, ?>> aggCommitters = new HashMap<>();
         for (TablePath tablePath : sinks.keySet()) {
             SeaTunnelSink sink = sinks.get(tablePath);
-            Optional<SinkAggregatedCommitter<?, ?>> sinkOptional = sink.createAggregatedCommitter();
-            sinkOptional.ifPresent(
-                    sinkAggregatedCommitter ->
-                            aggCommitters.put(tablePath.toString(), sinkAggregatedCommitter));
+            if (multiTableWriterTtl < 0) {
+                Optional<SinkAggregatedCommitter<?, ?>> sinkOptional =
+                        sink.createAggregatedCommitter();
+                sinkOptional.ifPresent(
+                        sinkAggregatedCommitter ->
+                                aggCommitters.put(tablePath.toString(), sinkAggregatedCommitter));
+            } else {
+                aggCommitters.put(
+                        tablePath.toString(), new MultiTablePreparedSinkAggregatedCommitter(sink));
+            }
         }
         if (aggCommitters.isEmpty()) {
             return Optional.empty();

@@ -189,6 +189,13 @@ public class ConnectorSpecificationCheckTest {
                 "Please add `SinkCommonOptions.MULTI_TABLE_SINK_REPLICA` optional into the `optionRule` method optional of `"
                         + sinkFactory.getClass().getSimpleName()
                         + "`");
+        Assertions.assertTrue(
+                sinkOptionRule
+                        .getOptionalOptions()
+                        .contains(SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC),
+                "Please add `SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC` optional into the `optionRule` method optional of `"
+                        + sinkFactory.getClass().getSimpleName()
+                        + "`");
 
         // Validate the `createWriter` method return type
         Optional<Method> createWriter =

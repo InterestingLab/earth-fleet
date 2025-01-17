@@ -38,4 +38,9 @@ public class SinkIdentifier implements Serializable {
     public static SinkIdentifier of(String tableIdentifier, int index) {
         return new SinkIdentifier(tableIdentifier, index);
     }
+
+    @Override
+    public String toString() {
+        return "{" + "tableIdentifier='" + tableIdentifier + '\'' + ", index=" + index + '}';
+    }
 }

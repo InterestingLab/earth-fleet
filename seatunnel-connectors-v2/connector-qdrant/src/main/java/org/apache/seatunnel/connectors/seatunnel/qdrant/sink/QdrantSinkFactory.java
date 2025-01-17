@@ -49,7 +49,8 @@ public class QdrantSinkFactory implements TableSinkFactory {
                         QdrantConfig.PORT,
                         QdrantConfig.API_KEY,
                         QdrantConfig.USE_TLS,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

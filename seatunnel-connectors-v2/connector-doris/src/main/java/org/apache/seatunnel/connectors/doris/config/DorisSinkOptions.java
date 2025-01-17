@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
+import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
@@ -167,6 +168,7 @@ public interface DorisSinkOptions {
                             SINK_ENABLE_2PC,
                             SINK_ENABLE_DELETE,
                             MULTI_TABLE_SINK_REPLICA,
+                            MULTI_TABLE_SINK_TTL_SEC,
                             SAVE_MODE_CREATE_TEMPLATE,
                             NEEDS_UNSUPPORTED_TYPE_CASTING)
                     .conditional(DATA_SAVE_MODE, DataSaveMode.CUSTOM_PROCESSING, CUSTOM_SQL);

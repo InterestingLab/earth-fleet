@@ -57,7 +57,8 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisConfig.VALUE_FIELD,
                         RedisConfig.HASH_KEY_FIELD,
                         RedisConfig.HASH_VALUE_FIELD,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
                 .build();
     }

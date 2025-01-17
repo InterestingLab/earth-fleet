@@ -67,7 +67,8 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                         BATCH_SIZE,
                         MAX_RETRIES,
                         RETRY_BACKOFF_MULTIPLIER_MS,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

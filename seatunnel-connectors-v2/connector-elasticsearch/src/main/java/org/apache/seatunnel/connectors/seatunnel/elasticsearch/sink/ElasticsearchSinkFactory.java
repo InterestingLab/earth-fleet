@@ -71,7 +71,8 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

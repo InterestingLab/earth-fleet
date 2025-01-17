@@ -55,7 +55,10 @@ public class ConsoleSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(
-                        LOG_PRINT_DATA, LOG_PRINT_DELAY, SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        LOG_PRINT_DATA,
+                        LOG_PRINT_DELAY,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

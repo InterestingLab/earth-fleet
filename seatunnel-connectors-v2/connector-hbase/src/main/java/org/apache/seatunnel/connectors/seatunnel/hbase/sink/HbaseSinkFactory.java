@@ -70,7 +70,8 @@ public class HbaseSinkFactory implements TableSinkFactory {
                         WRITE_BUFFER_SIZE,
                         ENCODING,
                         HBASE_EXTRA_CONFIG,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

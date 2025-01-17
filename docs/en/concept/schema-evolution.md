@@ -285,6 +285,8 @@ sink {
 
     # Validate ddl update for sink writer multi replica
     multi_table_sink_replica = 2
+    # multi sink writer ttl time (s)
+    multi_table_sink_ttl_sec = 30
   }
 }
 ```
