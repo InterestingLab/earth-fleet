@@ -29,7 +29,7 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.format.text.TextSerializationSchema;
+import org.apache.seatunnel.format.csv.CsvSerializationSchema;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -43,7 +43,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> {
+public class CsvWriteStrategy extends AbstractWriteStrategy {
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
@@ -56,7 +56,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     private final Charset charset;
     private SerializationSchema serializationSchema;
 
-    public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
+    public CsvWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
@@ -74,7 +74,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     public void setCatalogTable(CatalogTable catalogTable) {
         super.setCatalogTable(catalogTable);
         this.serializationSchema =
-                TextSerializationSchema.builder()
+                CsvSerializationSchema.builder()
                         .seaTunnelRowType(
                                 buildSchemaWithRowType(
                                         catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow))
@@ -104,7 +104,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
                                             .mapToInt(Integer::intValue)
                                             .toArray())));
         } catch (IOException e) {
-            throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
+            throw CommonError.fileOperationFailed("CsvFile", "write", filePath, e);
         }
     }
 
@@ -132,8 +132,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
         isFirstWrite.clear();
     }
 
-    @Override
-    public FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
+    private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
@@ -152,7 +151,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
                         break;
                     default:
                         log.warn(
-                                "Text file does not support this compress type: {}",
+                                "Csv file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
                         fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         enableWriteHeader(fsDataOutputStream);
@@ -161,7 +160,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                throw CommonError.fileOperationFailed("TextFile", "open", filePath, e);
+                throw CommonError.fileOperationFailed("CsvFile", "open", filePath, e);
             }
         }
         return fsDataOutputStream;
@@ -169,8 +168,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
 
     private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
         if (enableHeaderWriter) {
-            fsDataOutputStream.write(
-                    String.join(fieldDelimiter, seaTunnelRowType.getFieldNames()).getBytes());
+            fsDataOutputStream.write(String.join(",", seaTunnelRowType.getFieldNames()).getBytes());
             fsDataOutputStream.write(rowDelimiter.getBytes());
         }
     }

@@ -18,22 +18,19 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-formats</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-formats</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : Formats :</name>
+    <artifactId>seatunnel-format-csv</artifactId>
+    <name>SeaTunnel : Formats : Csv</name>
 
-    <modules>
-        <module>seatunnel-format-json</module>
-        <module>seatunnel-format-text</module>
-        <module>seatunnel-format-compatible-debezium-json</module>
-        <module>seatunnel-format-compatible-connect-json</module>
-        <module>seatunnel-format-avro</module>
-        <module>seatunnel-format-protobuf</module>
-        <module>seatunnel-format-csv</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 
 </project>
