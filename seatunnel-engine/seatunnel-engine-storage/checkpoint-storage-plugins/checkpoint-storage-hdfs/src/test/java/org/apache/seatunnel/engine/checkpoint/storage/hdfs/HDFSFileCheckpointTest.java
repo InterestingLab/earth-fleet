@@ -44,6 +44,8 @@ public class HDFSFileCheckpointTest extends AbstractFileCheckPointTest {
         config.put(
                 "seatunnel.hadoop.dfs.client.failover.proxy.provider.usdp-bing",
                 "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider");
+        config.put("fs.defaultFS", "file:///tmp/");
+        config.put("namespace", "/tmp/seatunnel/checkpoint/");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }
