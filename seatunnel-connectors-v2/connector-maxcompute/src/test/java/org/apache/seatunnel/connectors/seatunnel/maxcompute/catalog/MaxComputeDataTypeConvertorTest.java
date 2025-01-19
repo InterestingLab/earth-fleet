@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -79,8 +78,6 @@ public class MaxComputeDataTypeConvertorTest {
     @Test
     public void testConvertorErrorMsgWithUnsupportedType() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(new String[0], new SeaTunnelDataType[0]);
-        MultipleRowType multipleRowType =
-                new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
         MaxComputeDataTypeConvertor maxCompute = new MaxComputeDataTypeConvertor();
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
@@ -98,12 +95,5 @@ public class MaxComputeDataTypeConvertorTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert type 'INTERVAL_DAY_TIME' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
-        SeaTunnelRuntimeException exception3 =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () -> maxCompute.toConnectorType("test", multipleRowType, new HashMap<>()));
-        Assertions.assertEquals(
-                "ErrorCode:[COMMON-19], ErrorDescription:['Maxcompute' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
-                exception3.getMessage());
     }
 }

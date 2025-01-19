@@ -44,10 +44,7 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer
         for (int i = 0; i < row.getFields().length; i++) {
             SqlType sqlType = seaTunnelRowType.getFieldType(i).getSqlType();
             Object value;
-            if (sqlType == SqlType.ARRAY
-                    || sqlType == SqlType.MAP
-                    || sqlType == SqlType.ROW
-                    || sqlType == SqlType.MULTIPLE_ROW) {
+            if (sqlType == SqlType.ARRAY || sqlType == SqlType.MAP || sqlType == SqlType.ROW) {
                 // If the field type is complex type, we should keep the origin value.
                 // It will be transformed to json string in the next step
                 // JsonUtils.toJsonString(rowMap).

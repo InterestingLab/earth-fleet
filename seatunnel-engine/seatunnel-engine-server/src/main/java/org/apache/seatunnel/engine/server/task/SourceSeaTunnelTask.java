@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -79,12 +78,11 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                     "SourceSeaTunnelTask only support SourceFlowLifeCycle, but get "
                             + startFlowLifeCycle.getClass().getName());
         } else {
-            SeaTunnelDataType sourceProducedType;
+            List<CatalogTable> producedCatalogTables;
             List<TablePath> tablePaths = new ArrayList<>();
             try {
-                List<CatalogTable> producedCatalogTables =
+                producedCatalogTables =
                         sourceFlow.getAction().getSource().getProducedCatalogTables();
-                sourceProducedType = CatalogTableUtil.convertToDataType(producedCatalogTables);
                 tablePaths =
                         producedCatalogTables.stream()
                                 .map(CatalogTable::getTableId)
@@ -92,7 +90,9 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                                 .collect(Collectors.toList());
             } catch (UnsupportedOperationException e) {
                 // TODO remove it when all connector use `getProducedCatalogTables`
-                sourceProducedType = sourceFlow.getAction().getSource().getProducedType();
+                producedCatalogTables =
+                        CatalogTableUtil.convertDataTypeToCatalogTables(
+                                sourceFlow.getAction().getSource().getProducedType(), "default");
             }
             this.collector =
                     new SeaTunnelSourceCollector<>(
@@ -100,7 +100,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             outputs,
                             this.getMetricsContext(),
                             FlowControlStrategy.fromMap(envOption),
-                            sourceProducedType,
+                            producedCatalogTables,
                             tablePaths);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }

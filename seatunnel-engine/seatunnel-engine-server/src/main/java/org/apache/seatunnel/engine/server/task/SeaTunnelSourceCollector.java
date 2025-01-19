@@ -19,19 +19,18 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
-import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
@@ -40,10 +39,10 @@ import org.apache.commons.collections4.CollectionUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
@@ -61,10 +60,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final AtomicBoolean schemaChangeAfterCheckpointSignal = new AtomicBoolean(false);
 
     private volatile boolean emptyThisPollNext;
-    private final DataTypeChangeEventHandler dataTypeChangeEventHandler =
-            new DataTypeChangeEventDispatcher();
-    private Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
-    private SeaTunnelDataType rowType;
+    private final TableSchemaChangeEventHandler tableSchemaChangeEventHandler =
+            new TableSchemaChangeEventDispatcher();
+    private Map<String, TableSchema> tableSchemas;
+    private Map<String, SeaTunnelRowType> rowTypes;
     private FlowControlGate flowControlGate;
 
     public SeaTunnelSourceCollector(
@@ -72,17 +71,23 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
             MetricsContext metricsContext,
             FlowControlStrategy flowControlStrategy,
-            SeaTunnelDataType rowType,
+            List<CatalogTable> tables,
             List<TablePath> tablePaths) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
-        this.rowType = rowType;
+        this.tableSchemas =
+                tables.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        table -> table.getTablePath().getFullName(),
+                                        CatalogTable::getTableSchema));
+        this.rowTypes =
+                tables.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        table -> table.getTablePath().getFullName(),
+                                        CatalogTable::getSeaTunnelRowType));
         this.metricsContext = metricsContext;
-        if (rowType instanceof MultipleRowType) {
-            ((MultipleRowType) rowType)
-                    .iterator()
-                    .forEachRemaining(type -> this.rowTypeMap.put(type.getKey(), type.getValue()));
-        }
         this.taskMetricsCalcContext =
                 new TaskMetricsCalcContext(
                         metricsContext,
@@ -97,15 +102,14 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         try {
             if (row instanceof SeaTunnelRow) {
                 String tableId = ((SeaTunnelRow) row).getTableId();
+
                 int size;
-                if (rowType instanceof SeaTunnelRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
-                } else if (rowType instanceof MultipleRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize(rowTypeMap.get(tableId));
+                if (rowTypes.size() == 1) {
+                    size = ((SeaTunnelRow) row).getBytesSize(rowTypes.values().iterator().next());
                 } else {
-                    throw new SeaTunnelEngineException(
-                            "Unsupported row type: " + rowType.getClass().getName());
+                    size = ((SeaTunnelRow) row).getBytesSize(rowTypes.get(tableId));
                 }
+
                 flowControlGate.audit((SeaTunnelRow) row);
                 taskMetricsCalcContext.updateMetrics(row, tableId);
             }
@@ -119,17 +123,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(SchemaChangeEvent event) {
         try {
-            if (rowType instanceof SeaTunnelRowType) {
-                rowType = dataTypeChangeEventHandler.reset((SeaTunnelRowType) rowType).apply(event);
-            } else if (rowType instanceof MultipleRowType) {
-                String tableId = event.tablePath().toString();
-                rowTypeMap.put(
-                        tableId,
-                        dataTypeChangeEventHandler.reset(rowTypeMap.get(tableId)).apply(event));
-            } else {
-                throw new SeaTunnelEngineException(
-                        "Unsupported row type: " + rowType.getClass().getName());
-            }
+            String tableId = event.tablePath().toString();
+            TableSchema tableSchema = tableSchemas.get(tableId);
+            tableSchema = tableSchemaChangeEventHandler.reset(tableSchema).apply(event);
+            tableSchemas.put(tableId, tableSchema);
             sendRecordToNext(new Record<>(event));
         } catch (IOException e) {
             throw new RuntimeException(e);

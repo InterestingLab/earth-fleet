@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -34,8 +33,6 @@ public class DataTypeConvertorTest {
     @Test
     void testConvertorErrorMsgWithUnsupportedType() {
         SeaTunnelRowType rowType = new SeaTunnelRowType(new String[0], new SeaTunnelDataType[0]);
-        MultipleRowType multipleRowType =
-                new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
         StarRocksDataTypeConvertor starrocks = new StarRocksDataTypeConvertor();
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
@@ -51,12 +48,5 @@ public class DataTypeConvertorTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
-        SeaTunnelRuntimeException exception3 =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () -> starrocks.toConnectorType("test", multipleRowType, new HashMap<>()));
-        Assertions.assertEquals(
-                "ErrorCode:[COMMON-19], ErrorDescription:['StarRocks' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
-                exception3.getMessage());
     }
 }

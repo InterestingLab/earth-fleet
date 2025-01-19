@@ -25,9 +25,7 @@ import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
@@ -148,45 +146,13 @@ public class CatalogTableUtil implements Serializable {
         return buildWithConfig(readonlyConfig);
     }
 
-    public static SeaTunnelDataType<SeaTunnelRow> convertToDataType(
-            List<CatalogTable> catalogTables) {
-        if (catalogTables.size() == 1) {
-            return catalogTables.get(0).getTableSchema().toPhysicalRowDataType();
-        } else {
-            return convertToMultipleRowType(catalogTables);
-        }
-    }
-
-    @Deprecated
-    private static MultipleRowType convertToMultipleRowType(List<CatalogTable> catalogTables) {
-        Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
-        for (CatalogTable catalogTable : catalogTables) {
-            String tableId = catalogTable.getTableId().toTablePath().toString();
-            rowTypeMap.put(tableId, catalogTable.getTableSchema().toPhysicalRowDataType());
-        }
-        return new MultipleRowType(rowTypeMap);
-    }
-
     // We need to use buildWithConfig(String catalogName, ReadonlyConfig readonlyConfig);
     // Since this method will not inject the correct catalogName into CatalogTable
     @Deprecated
     public static List<CatalogTable> convertDataTypeToCatalogTables(
             SeaTunnelDataType<?> seaTunnelDataType, String tableId) {
-        List<CatalogTable> catalogTables;
-        if (seaTunnelDataType instanceof MultipleRowType) {
-            catalogTables = new ArrayList<>();
-            for (String id : ((MultipleRowType) seaTunnelDataType).getTableIds()) {
-                catalogTables.add(
-                        CatalogTableUtil.getCatalogTable(
-                                id, ((MultipleRowType) seaTunnelDataType).getRowType(id)));
-            }
-        } else {
-            catalogTables =
-                    Collections.singletonList(
-                            CatalogTableUtil.getCatalogTable(
-                                    tableId, (SeaTunnelRowType) seaTunnelDataType));
-        }
-        return catalogTables;
+        return Collections.singletonList(
+                CatalogTableUtil.getCatalogTable(tableId, (SeaTunnelRowType) seaTunnelDataType));
     }
 
     public static CatalogTable buildWithConfig(ReadonlyConfig readonlyConfig) {
