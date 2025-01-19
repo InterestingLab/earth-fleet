@@ -26,6 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
+import org.apache.hadoop.hbase.NotServingRegionException;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.BufferedMutator;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
@@ -55,6 +57,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseCon
 @Slf4j
 public class HbaseClient {
 
+    private static final long RETRY_DELAY_MS = 1000;
     private final Connection connection;
     private final Admin admin;
     private final BufferedMutator hbaseMutator;
@@ -77,7 +80,31 @@ public class HbaseClient {
                                             hbaseParameters.getNamespace(),
                                             hbaseParameters.getTable()))
                             .pool(HTable.getDefaultExecutor(hbaseConfiguration))
-                            .writeBufferSize(hbaseParameters.getWriteBufferSize());
+                            .writeBufferSize(hbaseParameters.getWriteBufferSize())
+                            .listener(
+                                    (e, mutator) -> {
+                                        for (int i = 0; i < e.getNumExceptions(); i++) {
+                                            Row row = e.getRow(i);
+                                            log.error("Failed to sent put {}.", row);
+                                            if (mutator != null
+                                                    && e.getCause()
+                                                            instanceof NotServingRegionException) {
+                                                log.info(
+                                                        "Retrying put {} after {} ms...",
+                                                        row,
+                                                        RETRY_DELAY_MS);
+                                                try {
+                                                    Thread.sleep(RETRY_DELAY_MS);
+                                                    mutator.mutate((Put) row);
+                                                } catch (IOException | InterruptedException ex) {
+                                                    log.error(
+                                                            "Unexpected exception during put {}.",
+                                                            row,
+                                                            e);
+                                                }
+                                            }
+                                        }
+                                    });
             hbaseMutator = connection.getBufferedMutator(bufferedMutatorParams);
         } catch (IOException e) {
             throw new HbaseConnectorException(

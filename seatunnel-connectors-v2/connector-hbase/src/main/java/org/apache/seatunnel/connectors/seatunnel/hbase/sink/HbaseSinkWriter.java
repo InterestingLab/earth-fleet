@@ -37,7 +37,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -120,7 +119,6 @@ public class HbaseSinkWriter
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
-            Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
                     hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
