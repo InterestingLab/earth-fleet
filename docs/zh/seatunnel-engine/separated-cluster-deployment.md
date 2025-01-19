@@ -186,105 +186,7 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
-### 4.6 IMap持久化配置(该参数在Worker节点无效)
-
-:::tip
-
-由于在分离集群模式下，只有Master节点存储Imap数据，Worker节点不存储Imap数据，所以Worker服务不会读取该参数项。
-
-:::
-
-在SeaTunnel中，我们使用IMap(一种分布式的Map，可以实现数据跨节点跨进程的写入的读取 有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) 来存储每个任务及其task的状态，以便在任务所在节点宕机后，可以在其他节点上获取到任务之前的状态信息，从而恢复任务实现任务的容错。
-
-默认情况下Imap的信息只是存储在内存中，我们可以设置Imap数据的复本数，具体可参考(4.1 Imap中数据的备份数设置)，如果复本数是2，代表每个数据会同时存储在2个不同的节点中。一旦节点宕机，Imap中的数据会重新在其它节点上自动补充到设置的复本数。但是当所有节点都被停止后，Imap中的数据会丢失。当集群节点再次启动后，所有之前正在运行的任务都会被标记为失败，需要用户手工通过seatunnel.sh -r 指令恢复运行。
-
-为了解决这个问题，我们可以将Imap中的数据持久化到外部存储中，如HDFS、OSS等。这样即使所有节点都被停止，Imap中的数据也不会丢失，当集群节点再次启动后，所有之前正在运行的任务都会被自动恢复。
-
-下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
-
-**type**
-
-imap 持久化的类型，目前仅支持 `hdfs`。
-
-**namespace**
-
-它用于区分不同业务的数据存储位置，如 OSS 存储桶名称。
-
-**clusterName**
-
-此参数主要用于集群隔离， 我们可以使用它来区分不同的集群，如 cluster1、cluster2，这也用于区分不同的业务。
-
-**fs.defaultFS**
-
-我们使用 hdfs api 读写文件，因此使用此存储需要提供 hdfs 配置。
-
-如果您使用 HDFS，可以像这样配置：
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: hdfs
-        fs.defaultFS: hdfs://localhost:9000
-```
-
-如果没有 HDFS，并且您的集群只有一个节点，您可以像这样配置使用本地文件：
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: hdfs
-        fs.defaultFS: file:///
-```
-
-如果您使用 OSS，可以像这样配置：
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: oss
-        block.size: block size(bytes)
-        oss.bucket: oss://bucket name/
-        fs.oss.accessKeyId: OSS access key id
-        fs.oss.accessKeySecret: OSS access key secret
-        fs.oss.endpoint: OSS endpoint
-```
-
-注意：使用OSS 时，确保 lib目录下有这几个jar.
-
-```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
-netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
-```
-
-### 4.7 作业调度策略
+### 4.6 作业调度策略
 
 当资源不足时，作业调度策略可以配置为以下两种模式：
 
@@ -407,6 +309,106 @@ hazelcast:
 TCP 是我们建议在独立 SeaTunnel Engine 集群中使用的方式。
 
 另一方面，Hazelcast 提供了一些其他的服务发现方法。有关详细信息，请参阅  [Hazelcast Network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
+
+### 5.3 IMap持久化配置(该参数在Worker节点无效)
+
+:::tip
+
+由于在分离集群模式下，只有Master节点存储Imap数据，Worker节点不存储Imap数据，所以Worker服务不会读取该参数项。
+
+:::
+
+在SeaTunnel中，我们使用IMap(一种分布式的Map，可以实现数据跨节点跨进程的写入的读取 有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) 来存储每个任务及其task的状态，以便在任务所在节点宕机后，可以在其他节点上获取到任务之前的状态信息，从而恢复任务实现任务的容错。
+
+默认情况下Imap的信息只是存储在内存中，我们可以设置Imap数据的复本数，具体可参考(4.1 Imap中数据的备份数设置)，如果复本数是2，代表每个数据会同时存储在2个不同的节点中。一旦节点宕机，Imap中的数据会重新在其它节点上自动补充到设置的复本数。但是当所有节点都被停止后，Imap中的数据会丢失。当集群节点再次启动后，所有之前正在运行的任务都会被标记为失败，需要用户手工通过seatunnel.sh -r 指令恢复运行。
+
+为了解决这个问题，我们可以将Imap中的数据持久化到外部存储中，如HDFS、OSS等。这样即使所有节点都被停止，Imap中的数据也不会丢失，当集群节点再次启动后，所有之前正在运行的任务都会被自动恢复。
+
+下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+
+**type**
+
+imap 持久化的类型，目前仅支持 `hdfs`。
+
+**namespace**
+
+它用于区分不同业务的数据存储位置，如 OSS 存储桶名称。
+
+**clusterName**
+
+此参数主要用于集群隔离， 我们可以使用它来区分不同的集群，如 cluster1、cluster2，这也用于区分不同的业务。
+
+**fs.defaultFS**
+
+我们使用 hdfs api 读写文件，因此使用此存储需要提供 hdfs 配置。
+
+如果您使用 HDFS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000
+```
+
+如果没有 HDFS，并且您的集群只有一个节点，您可以像这样配置使用本地文件：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: file:///
+```
+
+如果您使用 OSS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: oss
+        block.size: block size(bytes)
+        oss.bucket: oss://bucket name/
+        fs.oss.accessKeyId: OSS access key id
+        fs.oss.accessKeySecret: OSS access key secret
+        fs.oss.endpoint: OSS endpoint
+```
+
+注意：使用OSS 时，确保 lib目录下有这几个jar.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
+
 
 ## 6. 启动 SeaTunnel Engine Master 节点
 

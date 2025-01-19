@@ -182,105 +182,7 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
-### 4.6 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
-
-:::tip
-
-Since in the separated cluster mode, only the Master node stores IMap data and the Worker node does not store IMap data, the Worker service will not read this parameter item.
-
-:::
-
-In SeaTunnel, we use IMap (a distributed Map that can implement the writing and reading of data across nodes and processes. For detailed information, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) to store the state of each task and its task, so that after the node where the task is located fails, the state information of the task before can be obtained on other nodes, thereby recovering the task and realizing the fault tolerance of the task.
-
-By default, the information of IMap is only stored in the memory, and we can set the number of replicas of IMap data. For specific reference (4.1 Setting the number of backups of data in IMap), if the number of replicas is 2, it means that each data will be simultaneously stored in 2 different nodes. Once the node fails, the data in IMap will be automatically replenished to the set number of replicas on other nodes. But when all nodes are stopped, the data in IMap will be lost. When the cluster nodes are started again, all previously running tasks will be marked as failed and need to be recovered manually by the user through the seatunnel.sh -r instruction.
-
-To solve this problem, we can persist the data in IMap to an external storage such as HDFS, OSS, etc. In this way, even if all nodes are stopped, the data in IMap will not be lost, and when the cluster nodes are started again, all previously running tasks will be automatically recovered.
-
-The following describes how to use the MapStore persistence configuration. For detailed information, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
-
-**type**
-
-The type of IMap persistence, currently only supports `hdfs`.
-
-**namespace**
-
-It is used to distinguish the data storage locations of different businesses, such as the OSS bucket name.
-
-**clusterName**
-
-This parameter is mainly used for cluster isolation. We can use it to distinguish different clusters, such as cluster1, cluster2, which is also used to distinguish different businesses.
-
-**fs.defaultFS**
-
-We use the hdfs api to read and write files, so providing the hdfs configuration is required for using this storage.
-
-If you use HDFS, you can configure it like this:
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: hdfs
-        fs.defaultFS: hdfs://localhost:9000
-```
-
-If there is no HDFS and your cluster has only one node, you can configure it like this to use local files:
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: hdfs
-        fs.defaultFS: file:///
-```
-
-If you use OSS, you can configure it like this:
-
-```yaml
-map:
-  engine*:
-    map-store:
-      enabled: true
-      initial-mode: EAGER
-      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-      properties:
-        type: hdfs
-        namespace: /tmp/seatunnel/imap
-        clusterName: seatunnel-cluster
-        storage.type: oss
-        block.size: block size(bytes)
-        oss.bucket: oss://bucket name/
-        fs.oss.accessKeyId: OSS access key id
-        fs.oss.accessKeySecret: OSS access key secret
-        fs.oss.endpoint: OSS endpoint
-```
-
-Notice: When using OSS, make sure that the following jars are in the lib directory.
-
-```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
-netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
-```
-
-### 4.7 Job Scheduling Strategy
+### 4.6 Job Scheduling Strategy
 
 When resources are insufficient, the job scheduling strategy can be configured in the following two modes:
 
@@ -404,6 +306,106 @@ hazelcast:
 TCP is the way we recommend to use in a standalone SeaTunnel Engine cluster.
 
 On the other hand, Hazelcast provides some other service discovery methods. For details, please refer to [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters).
+
+### 5.3 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
+
+:::tip
+
+Since in the separated cluster mode, only the Master node stores IMap data and the Worker node does not store IMap data, the Worker service will not read this parameter item.
+
+:::
+
+In SeaTunnel, we use IMap (a distributed Map that can implement the writing and reading of data across nodes and processes. For detailed information, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) to store the state of each task and its task, so that after the node where the task is located fails, the state information of the task before can be obtained on other nodes, thereby recovering the task and realizing the fault tolerance of the task.
+
+By default, the information of IMap is only stored in the memory, and we can set the number of replicas of IMap data. For specific reference (4.1 Setting the number of backups of data in IMap), if the number of replicas is 2, it means that each data will be simultaneously stored in 2 different nodes. Once the node fails, the data in IMap will be automatically replenished to the set number of replicas on other nodes. But when all nodes are stopped, the data in IMap will be lost. When the cluster nodes are started again, all previously running tasks will be marked as failed and need to be recovered manually by the user through the seatunnel.sh -r instruction.
+
+To solve this problem, we can persist the data in IMap to an external storage such as HDFS, OSS, etc. In this way, even if all nodes are stopped, the data in IMap will not be lost, and when the cluster nodes are started again, all previously running tasks will be automatically recovered.
+
+The following describes how to use the MapStore persistence configuration. For detailed information, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+
+**type**
+
+The type of IMap persistence, currently only supports `hdfs`.
+
+**namespace**
+
+It is used to distinguish the data storage locations of different businesses, such as the OSS bucket name.
+
+**clusterName**
+
+This parameter is mainly used for cluster isolation. We can use it to distinguish different clusters, such as cluster1, cluster2, which is also used to distinguish different businesses.
+
+**fs.defaultFS**
+
+We use the hdfs api to read and write files, so providing the hdfs configuration is required for using this storage.
+
+If you use HDFS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000
+```
+
+If there is no HDFS and your cluster has only one node, you can configure it like this to use local files:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: file:///
+```
+
+If you use OSS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /tmp/seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: oss
+        block.size: block size(bytes)
+        oss.bucket: oss://bucket name/
+        fs.oss.accessKeyId: OSS access key id
+        fs.oss.accessKeySecret: OSS access key secret
+        fs.oss.endpoint: OSS endpoint
+```
+
+Notice: When using OSS, make sure that the following jars are in the lib directory.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
+
 
 ## 6. Starting the SeaTunnel Engine Master Node
 
