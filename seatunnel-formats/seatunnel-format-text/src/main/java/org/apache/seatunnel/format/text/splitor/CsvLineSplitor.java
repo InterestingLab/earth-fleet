@@ -17,57 +17,63 @@
 
 package org.apache.seatunnel.format.text.splitor;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 @Slf4j
 public class CsvLineSplitor implements TextLineSplitor, Serializable {
-    private Map<Character, CSVFormat> splitorFormatMap = new HashMap<>();
 
+    /**
+     * Split a line into fields based on the given separator and level.
+     *
+     * <p>This method handles quoted fields by ignoring the separator inside the quotes. If the line
+     * can't be split by the separator, the method will fallback to default split. for example:
+     * line: "a,b,c", separator: "," -> ["a", "b", "c"] line: "a,"b,c",d, separator: "," ->
+     * ["a","b,c","d"] line: "a,"b,"c,d",e",f", separator: "," -> ["a","b,"c,d",e","f"] and note
+     * that `b,"c,d",e` is the entire field
+     *
+     * @param line the line to be split
+     * @param separator separator
+     * @return an array of fields
+     */
     @Override
-    public String[] spliteLine(String line, String splitor) {
-        Character splitChar = splitor.charAt(0);
-        if (Objects.isNull(splitorFormatMap.get(splitChar))) {
-            splitorFormatMap.put(splitChar, CSVFormat.DEFAULT.withDelimiter(splitChar));
-        }
-        CSVFormat format = splitorFormatMap.get(splitChar);
-        CSVParser parser = null;
-        // Method to parse the line into CSV with the given separator
-        try {
-            // Create CSV parser
-            parser = CSVParser.parse(line, format);
-            // Parse the CSV records
-            List<String> res = new ArrayList<>();
-            for (CSVRecord record : parser.getRecords()) {
-                for (String value : record) {
-                    res.add(value);
-                }
-            }
-            return res.toArray(new String[0]);
-        } catch (Exception e) {
-            log.error(ExceptionUtils.getMessage(e));
+    public String[] splitLine(String line, String separator) {
+        if (StringUtils.isBlank(line)) {
             return new String[0];
-        } finally {
-            if (Objects.nonNull(parser)) {
-                try {
-                    parser.close();
-                } catch (IOException e) {
-                    log.error(ExceptionUtils.getMessage(e));
+        }
+
+        List<String> fields = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char currentChar = line.charAt(i);
+
+            if (currentChar == '"') {
+                // Handle escaped quotes
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    field.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
                 }
+            } else if (currentChar == separator.charAt(0) && !inQuotes) {
+                // Add field to list if separator is found and not inside quotes
+                fields.add(field.toString());
+                field.setLength(0);
+            } else {
+                // Append current character to the current field
+                field.append(currentChar);
             }
         }
+
+        // Add the last field to the list
+        fields.add(field.toString());
+        return fields.toArray(new String[0]);
     }
 }

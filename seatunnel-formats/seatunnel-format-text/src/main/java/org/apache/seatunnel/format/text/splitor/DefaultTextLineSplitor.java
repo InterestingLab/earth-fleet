@@ -22,7 +22,7 @@ import java.io.Serializable;
 public class DefaultTextLineSplitor implements TextLineSplitor, Serializable {
 
     @Override
-    public String[] spliteLine(String line, String seperator) {
+    public String[] splitLine(String line, String seperator) {
         return line.split(seperator, -1);
     }
 }

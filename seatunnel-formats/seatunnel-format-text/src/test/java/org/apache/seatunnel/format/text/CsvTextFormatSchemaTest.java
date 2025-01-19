@@ -190,4 +190,65 @@ public class CsvTextFormatSchemaTest {
         assertEquals(
                 "2022-09-24 22:45:00.000123", new String(textSerializationSchema.serialize(row)));
     }
+
+    @Test
+    public void testCsvFileDeserialization() throws Exception {
+        // Test reading and parsing from CSV file
+        java.nio.file.Path testFile =
+                java.nio.file.Paths.get(
+                        getClass().getClassLoader().getResource("testdata.csv").toURI());
+        java.util.List<String> lines = java.nio.file.Files.readAllLines(testFile);
+
+        // Skip header line
+        lines = lines.subList(1, lines.size());
+
+        // Expected test data
+        String[][] expectedData = {
+            {"New York", "ORDER001", "1000"},
+            {"San Francisco,CA", "ORDER,002", "2000"},
+            {"Los Angeles", "ORDER003", "3000"},
+            {"Miami, FL", "", "5000"},
+            {"Seattle", "ORDER,006,USA", "6000"},
+            {"Boston", "ORDER007", "7000"},
+        };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"city", "order_no", "amount"},
+                        new SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                        });
+
+        TextDeserializationSchema schema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .textLineSplitor(new CsvLineSplitor())
+                        .build();
+
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            Map<Integer, String> result = schema.splitLineBySeaTunnelRowType(line, rowType, 0);
+
+            // Remove quotes for comparison
+            String cityField = result.get(0).replaceAll("\"", "").trim();
+            String orderField = result.get(1).replaceAll("\"", "").trim();
+            String amountField = result.get(2).trim();
+
+            // Verify field values
+            Assertions.assertEquals(
+                    expectedData[i][0], cityField, "Mismatch in city field at line " + (i + 1));
+            Assertions.assertEquals(
+                    expectedData[i][1],
+                    orderField,
+                    "Mismatch in order_no field at line " + (i + 1));
+            Assertions.assertEquals(
+                    expectedData[i][2], amountField, "Mismatch in amount field at line " + (i + 1));
+
+            // Verify amount is a valid integer
+            Assertions.assertDoesNotThrow(
+                    () -> Integer.parseInt(amountField),
+                    "Amount should be a valid integer at line " + (i + 1));
+        }
+    }
 }
