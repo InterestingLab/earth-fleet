@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.http.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import org.apache.commons.collections4.map.HashedMap;
+
 import java.util.Map;
 
 public class HttpConfig {
@@ -33,6 +35,11 @@ public class HttpConfig {
     public static final int DEFAULT_SOCKET_TIMEOUT_MS = 6000 * 10;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
+    public static final Option<Boolean> KEEP_PARAM_FORM =
+            Options.key("keep_param_form")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Keep param form");
     public static final Option<Long> TOTAL_PAGE_SIZE =
             Options.key("total_page_size")
                     .longType()
@@ -69,8 +76,11 @@ public class HttpConfig {
                     .withDescription("Http request headers");
     public static final Option<Map<String, String>> PARAMS =
             Options.key("params").mapType().noDefaultValue().withDescription("Http request params");
-    public static final Option<String> BODY =
-            Options.key("body").stringType().noDefaultValue().withDescription("Http request body");
+    public static final Option<Map<String, Object>> BODY =
+            Options.key("body")
+                    .mapObjectType()
+                    .defaultValue(new HashedMap<>())
+                    .withDescription("Http request body");
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)

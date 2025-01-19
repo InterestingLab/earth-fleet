@@ -46,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -195,7 +196,9 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        this.httpParameter.getBody());
+                        this.httpParameter.getBody(),
+                        Collections.emptyMap(),
+                        this.httpParameter.isKeepParamsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {

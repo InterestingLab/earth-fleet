@@ -29,10 +29,13 @@ import java.util.stream.Collectors;
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
     protected String url;
+    protected boolean enabledOldSubmit = false;
     protected HttpRequestMethod method;
     protected Map<String, String> headers;
     protected Map<String, String> params;
-    protected String body;
+    protected Map<String, Object> pageParams;
+    protected boolean keepParamsForm = false;
+    protected Map<String, Object> body;
     protected int pollIntervalMillis;
     protected int retry;
     protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
@@ -44,6 +47,10 @@ public class HttpParameter implements Serializable {
     public void buildWithConfig(Config pluginConfig) {
         // set url
         this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
+        if (pluginConfig.hasPath(HttpConfig.KEEP_PARAM_FORM.key())) {
+            this.setKeepParamsForm(pluginConfig.getBoolean(HttpConfig.KEEP_PARAM_FORM.key()));
+        }
+
         // set method
         if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
             HttpRequestMethod httpRequestMethod =
@@ -75,7 +82,13 @@ public class HttpParameter implements Serializable {
         }
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
-            this.setBody(pluginConfig.getString(HttpConfig.BODY.key()));
+            this.setBody(
+                    pluginConfig.getConfig(HttpConfig.BODY.key()).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2)));
         }
         if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));

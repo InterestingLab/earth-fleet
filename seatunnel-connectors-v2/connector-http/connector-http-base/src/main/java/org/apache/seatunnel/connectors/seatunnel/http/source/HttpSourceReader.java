@@ -116,7 +116,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        this.httpParameter.getBody());
+                        this.httpParameter.getBody(),
+                        this.httpParameter.getPageParams(),
+                        this.httpParameter.isKeepParamsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {
@@ -146,12 +148,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private void updateRequestParam(PageInfo pageInfo) {
-        if (this.httpParameter.getParams() == null) {
-            httpParameter.setParams(new HashMap<>());
+        if (this.httpParameter.getPageParams() == null) {
+            httpParameter.setPageParams(new HashMap<>());
         }
-        this.httpParameter
-                .getParams()
-                .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+        this.httpParameter.getPageParams().put(pageInfo.getPageField(), pageInfo.getPageIndex());
     }
 
     @Override
