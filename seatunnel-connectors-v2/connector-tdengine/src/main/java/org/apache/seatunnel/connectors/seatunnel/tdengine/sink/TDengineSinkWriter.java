@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -105,6 +106,17 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                             config.getStable(),
                             tagValues,
                             StringUtils.join(convertDataType(metrics), ","));
+            if (CollectionUtils.isNotEmpty(config.getFields())) {
+                sql =
+                        String.format(
+                                "INSERT INTO %s using %s tags ( %s ) (%s) VALUES ( %s );",
+                                element.getField(0),
+                                config.getStable(),
+                                tagValues,
+                                String.join(",", config.getFields()),
+                                StringUtils.join(convertDataType(metrics), ","));
+            }
+            log.debug("sql content: {}", sql);
             final int rowCount = statement.executeUpdate(sql);
             if (rowCount == 0) {
                 Throwables.propagateIfPossible(
