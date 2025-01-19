@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -30,7 +31,13 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ShardRou
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.format.avro.RowToAvroConverter;
+import org.apache.seatunnel.format.avro.SeaTunnelRowTypeToAvroSchemaConverter;
 
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.io.FileUtils;
 
 import com.clickhouse.client.ClickHouseRequest;
@@ -44,9 +51,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,6 +86,9 @@ public class ClickhouseFileSinkWriter
 
     private final SinkWriter.Context context;
     private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
+    private Map<Shard, DataFileWriter<GenericRecord>> dataFileWriterMap;
+    private final Schema schema;
+    private final SeaTunnelRowType rowType;
 
     public ClickhouseFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
         this.readerOption = readerOption;
@@ -116,38 +123,42 @@ public class ClickhouseFileSinkWriter
                                                             clickhouseTable.getLocalTableName());
                                             return shardTable.getDataPaths();
                                         }));
+        schema =
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                        readerOption.getSeaTunnelRowType());
+        rowType = readerOption.getSeaTunnelRowType();
+        dataFileWriterMap = new HashMap<>();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         Shard shard = shardRouter.getShard(element);
-        FileChannel channel =
-                rowCache.computeIfAbsent(
-                        shard,
-                        k -> {
-                            String uuid =
-                                    UUID.randomUUID()
-                                            .toString()
-                                            .substring(0, UUID_LENGTH)
-                                            .replaceAll("-", "_");
-                            String clickhouseLocalFile =
-                                    String.format("%s/%s", readerOption.getFileTempPath(), uuid);
-                            try {
-                                FileUtils.forceMkdir(new File(clickhouseLocalFile));
-                                String clickhouseLocalFileTmpFile =
-                                        clickhouseLocalFile + CLICKHOUSE_LOCAL_FILE_SUFFIX;
-                                shardTempFile.put(shard, clickhouseLocalFileTmpFile);
-                                return FileChannel.open(
-                                        Paths.get(clickhouseLocalFileTmpFile),
-                                        StandardOpenOption.WRITE,
-                                        StandardOpenOption.READ,
-                                        StandardOpenOption.CREATE_NEW);
-                            } catch (IOException e) {
-                                throw CommonError.fileOperationFailed(
-                                        "ClickhouseFile", "write", clickhouseLocalFile, e);
-                            }
-                        });
-        saveDataToFile(channel, element, shard);
+        if (!shardTempFile.containsKey(shard)) {
+            String uuid =
+                    UUID.randomUUID().toString().substring(0, UUID_LENGTH).replaceAll("-", "_");
+            String clickhouseLocalFile =
+                    String.format("%s/%s", readerOption.getFileTempPath(), uuid);
+            try {
+                FileUtils.forceMkdir(new File(clickhouseLocalFile));
+                String clickhouseLocalFileTmpFile =
+                        clickhouseLocalFile + CLICKHOUSE_LOCAL_FILE_SUFFIX;
+                shardTempFile.put(shard, clickhouseLocalFileTmpFile);
+                File file = new File(clickhouseLocalFileTmpFile);
+                if (!file.exists()) {
+                    file.createNewFile();
+                    DataFileWriter dataFileWriter =
+                            new DataFileWriter<>(new GenericDatumWriter<>(schema));
+                    dataFileWriter.create(schema, new File(shardTempFile.get(shard)));
+                    dataFileWriterMap.put(shard, dataFileWriter);
+                }
+            } catch (IOException e) {
+                throw CommonError.fileOperationFailed(
+                        "ClickhouseFile", "write", clickhouseLocalFile, e);
+            }
+        }
+        RowToAvroConverter rowToAvroConverter = new RowToAvroConverter(rowType);
+        GenericRecord data = rowToAvroConverter.convertRowToGenericRecord(element);
+        dataFileWriterMap.get(shard).append(data);
     }
 
     private void nodePasswordCheck() {
@@ -184,6 +195,7 @@ public class ClickhouseFileSinkWriter
                 (shard, path) -> {
                     List<String> clickhouseLocalFiles = null;
                     try {
+                        dataFileWriterMap.get(shard).flush();
                         clickhouseLocalFiles = generateClickhouseLocalFiles(path);
                         // move file to server
                         moveClickhouseLocalFileToServer(shard, clickhouseLocalFiles);
@@ -215,47 +227,6 @@ public class ClickhouseFileSinkWriter
         }
     }
 
-    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row, Shard shard)
-            throws IOException {
-        String data =
-                this.readerOption.getFields().stream()
-                                .map(
-                                        field -> {
-                                            Object fieldValueObj =
-                                                    row.getField(
-                                                            this.readerOption
-                                                                    .getSeaTunnelRowType()
-                                                                    .indexOf(field));
-                                            if (fieldValueObj == null) {
-                                                return "";
-                                            } else {
-                                                return fieldValueObj.toString();
-                                            }
-                                        })
-                                .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
-                        + "\n";
-
-        MappedByteBuffer buffer =
-                bufferCache.computeIfAbsent(
-                        shard,
-                        k -> {
-                            try {
-                                return fileChannel.map(
-                                        FileChannel.MapMode.READ_WRITE, 0, bufferSize);
-                            } catch (IOException e) {
-                                throw CommonError.fileOperationFailed(
-                                        "ClickhouseFile", "write", "UNKNOWN", e);
-                            }
-                        });
-        byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
-        if (buffer.position() + byteData.length > buffer.capacity()) {
-            buffer =
-                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
-            bufferCache.put(shard, buffer);
-        }
-        buffer.put(byteData);
-    }
-
     private List<String> generateClickhouseLocalFiles(String clickhouseLocalFileTmpFile)
             throws IOException, InterruptedException {
         // temp file path format prefix/<uuid>/suffix
@@ -275,8 +246,7 @@ public class ClickhouseFileSinkWriter
         }
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
-        command.add("--format_csv_delimiter");
-        command.add("\"" + readerOption.getFileFieldsDelimiter() + "\"");
+        command.add(" --input-format Avro");
         command.add("-S");
         command.add(
                 "\""
