@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -31,9 +33,13 @@ import java.util.List;
 public class UserVariableIT extends TestSuiteBase {
 
     @TestTemplate
-    public void userVariableTest(TestContainer container) throws IOException, InterruptedException {
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "")
+    public void zetaVariableTest(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
-        String list = "[abc,def]";
+        String list = "[a bc]";
         variables.add("resName=a$(date +\"%Y%m%d\")");
         variables.add("rowNum=10");
         variables.add("strTemplate=" + list);

@@ -110,4 +110,15 @@ do
   fi
 done
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+UPD_ARGS=""
+for arg in "$@"; do
+  if [[ $arg == *" "* ]]; then
+    key="${arg%%=*}"
+    value="${arg#*=}"
+    UPD_ARGS="${UPD_ARGS}${key}='${value}' "
+  else
+    UPD_ARGS="${UPD_ARGS}${arg} "
+  fi
+done
+
+eval "java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${UPD_ARGS}"
