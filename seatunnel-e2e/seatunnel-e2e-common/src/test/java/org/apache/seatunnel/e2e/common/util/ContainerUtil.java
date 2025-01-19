@@ -94,13 +94,16 @@ public final class ContainerUtil {
         Set<String> connectorNames = getConnectors(jobConfig, connectors, "source");
         connectorNames.addAll(getConnectors(jobConfig, connectors, "sink"));
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
-
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
-        connectorFiles.forEach(
-                jar ->
-                        container.copyFileToContainer(
-                                MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+        List<String> jars = getAlreadyInContainerConnectors(container, seatunnelHome);
+        connectorFiles.stream()
+                .filter(jar -> !jars.contains(jar.getName()))
+                .forEach(
+                        jar ->
+                                container.copyFileToContainer(
+                                        MountableFile.forHostPath(jar.getAbsolutePath()),
+                                        Paths.get(seatunnelHome, "connectors", jar.getName())
+                                                .toString()));
     }
 
     public static void copyAllConnectorJarToContainer(
@@ -126,11 +129,15 @@ public final class ContainerUtil {
                                                 connectors.getConfig(pluginType.getType()))));
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
-        connectorFiles.forEach(
-                jar ->
-                        container.copyFileToContainer(
-                                MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+        List<String> jars = getAlreadyInContainerConnectors(container, seatunnelHome);
+        connectorFiles.stream()
+                .filter(jar -> !jars.contains(jar.getName()))
+                .forEach(
+                        jar ->
+                                container.copyFileToContainer(
+                                        MountableFile.forHostPath(jar.getAbsolutePath()),
+                                        Paths.get(seatunnelHome, "connectors", jar.getName())
+                                                .toString()));
     }
 
     public static Set<String> getConnectorNames(Config config) {
@@ -153,6 +160,19 @@ public final class ContainerUtil {
         treeSet.addAll(
                 ReadonlyConfig.fromConfig(connectors.getConfig(pluginType)).toMap().keySet());
         return treeSet;
+    }
+
+    private static List<String> getAlreadyInContainerConnectors(
+            GenericContainer<?> container, String seatunnelHome) {
+        try {
+            Container.ExecResult execResult =
+                    container.execInContainer(
+                            "ls", Paths.get(seatunnelHome, "connectors").toString());
+            String result = execResult.getStdout();
+            return Arrays.stream(result.split("\n")).collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
