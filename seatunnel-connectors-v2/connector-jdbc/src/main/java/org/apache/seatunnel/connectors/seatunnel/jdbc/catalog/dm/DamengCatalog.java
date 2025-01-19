@@ -94,7 +94,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + " where OWNER = '%s' and TABLE_NAME = '%s'",
+                        + " AND OWNER = '%s' and OBJECT_NAME = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }
@@ -122,7 +122,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT OWNER, TABLE_NAME FROM ALL_TABLES";
+        return "SELECT OWNER, OBJECT_NAME FROM ALL_OBJECTS WHERE OBJECT_TYPE IN ('VIEW', 'TABLE') AND GENERATED = 'N'";
     }
 
     @Override

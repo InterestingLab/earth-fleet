@@ -51,7 +51,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                     + "       col.scale AS scale,\n"
                     + "       col.is_nullable AS is_nullable,\n"
                     + "       def.definition AS default_value\n"
-                    + "FROM sys.tables tbl\n"
+                    + "FROM sys.objects tbl\n"
                     + "    INNER JOIN sys.columns col ON tbl.object_id = col.object_id\n"
                     + "    LEFT JOIN sys.types types ON col.system_type_id = types.user_type_id\n"
                     + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id\n"
@@ -91,7 +91,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     protected String getListTableSql(String databaseName) {
         return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
                 + databaseName
-                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')";
     }
 
     @Override
