@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplitEnumerator;
 
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
 
@@ -74,7 +75,9 @@ class KafkaSourceSplitEnumeratorTest {
                                                                 Collections.singletonList(
                                                                         new TopicPartitionInfo(
                                                                                 0,
-                                                                                null,
+                                                                                new Node(
+                                                                                        2, "",
+                                                                                        18080),
                                                                                 Collections
                                                                                         .emptyList(),
                                                                                 Collections
