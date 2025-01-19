@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.juicefs;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.juicefs.sink.JuicefsFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.juicefs.source.JuicefsFileSourceFactory;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File"),
-    OBS("ObsFile"),
-    JUICEFS("JuicefsFile");
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private final String fileSystemPluginName;
+public class JuicefsFileFactoryTest {
 
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new JuicefsFileSourceFactory()).optionRule());
+        Assertions.assertNotNull((new JuicefsFileSinkFactory()).optionRule());
     }
 }

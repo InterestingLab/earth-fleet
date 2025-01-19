@@ -15,29 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.juicefs.source;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.juicefs.source.config.MultipleTableJuicefsFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File"),
-    OBS("ObsFile"),
-    JUICEFS("JuicefsFile");
+public class JuicefsFileSource extends BaseMultipleTableFileSource {
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
+    public JuicefsFileSource(ReadonlyConfig readonlyConfig) {
+        super(new MultipleTableJuicefsFileSourceConfig(readonlyConfig));
     }
 
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    @Override
+    public String getPluginName() {
+        return FileSystemType.JUICEFS.getFileSystemPluginName();
     }
 }

@@ -111,6 +111,7 @@
                 <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
                 <jdom.version>1.1</jdom.version>
                 <tidb.version>3.3.5</tidb.version>
+                <hadoop-juicefs.version>1.2.1</hadoop-juicefs.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -311,6 +312,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-file-sftp</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-juicefs</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -762,6 +769,12 @@
                     <groupId>org.jdom</groupId>
                     <artifactId>jdom</artifactId>
                     <version>${jdom.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>io.juicefs</groupId>
+                    <artifactId>juicefs-hadoop</artifactId>
+                    <version>${hadoop-juicefs.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
