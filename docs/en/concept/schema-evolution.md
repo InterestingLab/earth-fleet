@@ -27,6 +27,11 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [Paimon](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Paimon.md#Schema-Evolution)
 [Elasticsearch](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Elasticsearch.md#Schema-Evolution)
 
+## Supported transforms
+
+### Transform
+[Replace](https://github.com/apache/seatunnel/blob/dev/docs/en/transform-v2/replace.md)
+
 Note: The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
 
 When you use the Oracle-CDC，you can not use the username named `SYS` or `SYSTEM` to modify the table schema, otherwise the ddl event will be filtered out which can lead to the schema evolution not working.

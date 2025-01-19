@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.transform.replace;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
@@ -36,6 +42,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
     private final ReadonlyConfig config;
     private int inputFieldIndex;
 
+    private TableSchemaChangeEventHandler tableSchemaChangeEventHandler;
+
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
@@ -43,6 +51,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         initOutputFields(
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
                 this.config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
+        this.tableSchemaChangeEventHandler = new TableSchemaChangeEventDispatcher();
     }
 
     @Override
@@ -56,6 +65,28 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         } catch (IllegalArgumentException e) {
             throw TransformCommonError.cannotFindInputFieldError(getPluginName(), replaceField);
         }
+    }
+
+    @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        TableSchema newTableSchema =
+                tableSchemaChangeEventHandler
+                        .reset(this.inputCatalogTable.getTableSchema())
+                        .apply(event);
+        this.inputCatalogTable =
+                CatalogTable.of(
+                        inputCatalogTable.getTableId(),
+                        newTableSchema,
+                        inputCatalogTable.getOptions(),
+                        inputCatalogTable.getPartitionKeys(),
+                        inputCatalogTable.getComment());
+        initOutputFields(
+                inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
+                this.config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
+
+        transformTableSchema();
+
+        return event;
     }
 
     @Override
@@ -107,5 +138,10 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
                     getPluginName(), config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
         }
         return collect.get(0).copy();
+    }
+
+    @VisibleForTesting
+    public void initRowContainerGenerator() {
+        transformTableSchema();
     }
 }

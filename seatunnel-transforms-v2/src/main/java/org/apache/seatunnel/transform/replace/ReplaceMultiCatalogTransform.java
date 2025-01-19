@@ -19,7 +19,9 @@ package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
 
@@ -35,6 +37,13 @@ public class ReplaceMultiCatalogTransform extends AbstractMultiCatalogMapTransfo
     @Override
     public String getPluginName() {
         return "Replace";
+    }
+
+    @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        return ((SeaTunnelMapTransform<SeaTunnelRow>)
+                        transformMap.get(event.tablePath().toString()))
+                .mapSchemaChangeEvent(event);
     }
 
     @Override
