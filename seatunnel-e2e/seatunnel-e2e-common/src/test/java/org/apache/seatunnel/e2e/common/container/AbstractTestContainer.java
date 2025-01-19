@@ -186,6 +186,38 @@ public abstract class AbstractTestContainer implements TestContainer {
         return executeCommand(container, command);
     }
 
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container, String confFile, String jobId, List<String> variables)
+            throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
+        // copy connectors
+        copyConnectorJarToContainer(
+                container,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        // base command
+        command.add(adaptPathForWin(binPath));
+        command.add("--config");
+        command.add(adaptPathForWin(confInContainerPath));
+        command.add(getRestoreCommand());
+        command.add(jobId);
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
+        return executeCommand(container, command);
+    }
+
     protected Container.ExecResult executeCommand(
             GenericContainer<?> container, List<String> command)
             throws IOException, InterruptedException {
