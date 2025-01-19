@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 import lombok.NonNull;
 
 import java.time.temporal.Temporal;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,9 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
 
+    private final Function<SeaTunnelRow, String> parentExtractor;
+    private final IndexInfo indexInfo;
+
     public ElasticsearchRowSerializer(
             ElasticsearchClusterInfo elasticsearchClusterInfo,
             IndexInfo indexInfo,
@@ -63,6 +67,9 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
+        this.parentExtractor =
+                ParentExtractor.createParentExtractor(seaTunnelRowType, indexInfo.getParentField());
+        this.indexInfo = indexInfo;
     }
 
     @Override
@@ -167,6 +174,12 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
         Object[] fields = row.getFields();
         for (int i = 0; i < fieldNames.length; i++) {
+
+            // primaryKeys,The fields matched by 'parent' do not need to be written directly
+            if (fieldNames[i].equalsIgnoreCase(indexInfo.getParentField())
+                    || primaryKeysSkip(indexInfo.getPrimaryKeys(), fieldNames[i])) {
+                continue;
+            }
             Object value = fields[i];
             if (value == null) {
                 doc.put(fieldNames[i], null);
@@ -180,6 +193,13 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             }
         }
         return doc;
+    }
+
+    private boolean primaryKeysSkip(String[] keys, String fieldName) {
+        if (keys == null || keys.length == 0) {
+            return false;
+        }
+        return Arrays.stream(keys).anyMatch(y -> y.equalsIgnoreCase(fieldName));
     }
 
     private Object convertValue(Object value) {
@@ -211,6 +231,9 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         Map<String, String> actionMetadata = new HashMap<>(2);
         actionMetadata.put("_index", indexSerializer.serialize(row));
         indexTypeSerializer.fillType(actionMetadata);
+        if (indexInfo.getParentField() != null) {
+            actionMetadata.put("parent", parentExtractor.apply(row));
+        }
         return actionMetadata;
     }
 }

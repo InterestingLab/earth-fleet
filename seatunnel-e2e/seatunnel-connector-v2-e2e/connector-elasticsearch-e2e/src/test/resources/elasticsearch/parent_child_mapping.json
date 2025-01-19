@@ -1,0 +1,41 @@
+{
+    "mappings": {
+        "weixin": {
+            "_all": {
+                "enabled": false
+            },
+            "_parent": {
+                "type": "main"
+            },
+            "_routing": {
+                "required": true
+            },
+            "properties": {
+                "article_num": {
+                    "type": "long"
+                },
+                "weixin_name": {
+                    "type": "text"
+                }
+            }
+        },
+        "_default_": {
+            "_all": {
+                "enabled": false
+            }
+        },
+        "main": {
+            "_all": {
+                "enabled": false
+            },
+            "properties": {
+                "ent_name": {
+                    "type": "text"
+                },
+                "ent_type": {
+                    "type": "keyword"
+                }
+            }
+        }
+    }
+}

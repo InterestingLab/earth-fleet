@@ -19,7 +19,7 @@
 
 ## 选项
 
-|           名称            |   类型    | 是否必须 |             默认值              |
+| 名称                      | 类型      | 是否必须 | 默认值                          |
 |-------------------------|---------|------|------------------------------|
 | hosts                   | array   | 是    | -                            |
 | index                   | string  | 是    | -                            |
@@ -39,6 +39,7 @@
 | tls_truststore_path     | string  | 否    | -                            |
 | tls_truststore_password | string  | 否    | -                            |
 | common-options          |         | 否    | -                            |
+| parent_field            | string  | 否    |                              |
 
 ### hosts [array]
 
@@ -120,6 +121,10 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 `DROP_DATA`： 保留数据库结构，删除数据<br/>
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
+
+### parent_field [string]
+
+使用Elasticsearch 6.x及之前的版本时，向子文档插入数据时parent_field必填，用于标识父文档索引字段从哪个字段取值,_routing的值会依赖此值生成
 
 ## 示例
 

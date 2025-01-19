@@ -1,0 +1,17 @@
+{
+    "mappings": {
+        "main": {
+            "_all": {
+                "enabled": false
+            },
+            "properties": {
+                "ent_name": {
+                    "type": "text"
+                },
+                "ent_type": {
+                    "type": "keyword"
+                }
+            }
+        }
+    }
+}

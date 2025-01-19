@@ -71,8 +71,6 @@ public class ElasticsearchRowSerializerTest {
                         + "\"} }\n"
                         + "{ \"doc\" :{\"name\":\""
                         + name
-                        + "\",\"id\":\""
-                        + id
                         + "\"}, \"doc_as_upsert\" : true }";
 
         String upsertStr = serializer.serializeRow(row);
@@ -142,7 +140,6 @@ public class ElasticsearchRowSerializerTest {
         row.setRowKind(RowKind.UPDATE_AFTER);
 
         Map<String, Object> expectedMap = new HashMap<>();
-        expectedMap.put(primaryKey, id);
         expectedMap.put("name", mockObj);
 
         SeaTunnelRuntimeException expected =

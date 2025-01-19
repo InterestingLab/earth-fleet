@@ -39,6 +39,7 @@ Engine Supported
 | tls_truststore_path     | string  | no       | -                            |
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
+| parent_field            | string  | no       |                              |
 
 ### hosts [array]
 
@@ -121,6 +122,10 @@ Option introduction：
 `DROP_DATA`： Preserve database structure and delete data  
 `APPEND_DATA`：Preserve database structure, preserve data  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+### parent_field [string]
+
+When using Elasticsearch 6. x and earlier versions, when inserting data into a subdocument, parent_field is required to identify which field the parent document index field is derived from. The value of _routing depends on this value to generate
 
 ## Examples
 

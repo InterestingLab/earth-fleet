@@ -1,0 +1,20 @@
+{
+    "mappings": {
+        "weixin": {
+            "_all": {
+                "enabled": false
+            },
+            "properties": {
+                "article_num": {
+                    "type": "long"
+                },
+                "weixin_name": {
+                    "type": "text"
+                },
+                "ent_id": {
+                    "type": "text"
+                }
+            }
+        }
+    }
+}
