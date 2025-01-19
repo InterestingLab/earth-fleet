@@ -35,10 +35,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceCheckpoint;
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
@@ -48,7 +45,6 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -95,7 +91,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -347,31 +342,6 @@ public class MultipleTableJobConfigParser {
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
-    private static <T extends Factory> boolean isFallback(
-            ClassLoader classLoader,
-            Class<T> factoryClass,
-            String factoryId,
-            Consumer<T> virtualCreator) {
-        Optional<T> factory =
-                FactoryUtil.discoverOptionalFactory(classLoader, factoryClass, factoryId);
-        if (!factory.isPresent()) {
-            return true;
-        }
-        try {
-            virtualCreator.accept(factory.get());
-        } catch (Exception e) {
-            if (e instanceof UnsupportedOperationException
-                    && "The Factory has not been implemented and the deprecated Plugin will be used."
-                            .equals(e.getMessage())) {
-                log.warn(
-                        "The Factory has not been implemented and the deprecated Plugin will be used.");
-                return true;
-            }
-            log.debug(ExceptionUtils.getMessage(e));
-        }
-        return false;
-    }
-
     private int getParallelism(ReadonlyConfig config) {
         return Math.max(
                 1,
@@ -387,19 +357,6 @@ public class MultipleTableJobConfigParser {
                 readonlyConfig.getOptional(CommonOptions.PLUGIN_OUTPUT).orElse(DEFAULT_ID);
 
         final int parallelism = getParallelism(readonlyConfig);
-
-        boolean fallback =
-                isFallback(
-                        classLoader,
-                        TableSourceFactory.class,
-                        factoryId,
-                        (factory) -> factory.createSource(null));
-
-        if (fallback) {
-            Tuple2<CatalogTable, Action> tuple =
-                    fallbackParser.parseSource(sourceConfig, jobConfig, tableId, parallelism);
-            return new Tuple2<>(tableId, Collections.singletonList(tuple));
-        }
 
         Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2;
         if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
@@ -589,16 +546,6 @@ public class MultipleTableJobConfigParser {
                             "Sink don't support simultaneous writing of data from multi-table source and other sources.");
                 }
             }
-        }
-
-        boolean fallback =
-                isFallback(
-                        classLoader,
-                        TableSinkFactory.class,
-                        factoryId,
-                        (factory) -> factory.createSink(null));
-        if (fallback) {
-            return fallbackParser.parseSinks(configIndex, inputVertices, sinkConfig, jobConfig);
         }
 
         // get jar urls

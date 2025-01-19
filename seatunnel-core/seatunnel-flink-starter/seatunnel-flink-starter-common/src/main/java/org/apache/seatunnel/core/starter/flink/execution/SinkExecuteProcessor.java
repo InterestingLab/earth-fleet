@@ -66,8 +66,6 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_
 public class SinkExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<Optional<? extends Factory>> {
 
-    private static final String PLUGIN_TYPE = PluginType.SINK.getType();
-
     protected SinkExecuteProcessor(
             List<URL> jarPaths,
             Config envConfig,
@@ -98,52 +96,26 @@ public class SinkExecuteProcessor
     @Override
     public List<DataStreamTableInfo> execute(List<DataStreamTableInfo> upstreamDataStreams)
             throws TaskExecuteException {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
-                new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
         DataStreamTableInfo input = upstreamDataStreams.get(upstreamDataStreams.size() - 1);
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
             DataStreamTableInfo stream =
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
-            Optional<? extends Factory> factory = plugins.get(i);
-            boolean fallBack = !factory.isPresent() || isFallback(factory.get());
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
-            if (fallBack) {
-                for (CatalogTable catalogTable : stream.getCatalogTables()) {
-                    SeaTunnelSink fallBackSink =
-                            fallbackCreateSink(
-                                    sinkPluginDiscovery,
-                                    PluginIdentifier.of(
-                                            ENGINE_TYPE,
-                                            PLUGIN_TYPE,
-                                            sinkConfig.getString(PLUGIN_NAME.key())),
-                                    sinkConfig);
-                    fallBackSink.setJobContext(jobContext);
-                    SeaTunnelRowType sourceType = catalogTable.getSeaTunnelRowType();
-                    fallBackSink.setTypeInfo(sourceType);
-                    handleSaveMode(fallBackSink);
-                    TableIdentifier tableId = catalogTable.getTableId();
-                    sinks.put(tableId.toTablePath(), fallBackSink);
-                }
-            } else {
-                for (CatalogTable catalogTable : stream.getCatalogTables()) {
-                    SeaTunnelSink seaTunnelSink;
-                    TableSinkFactoryContext context =
-                            TableSinkFactoryContext.replacePlaceholderAndCreate(
-                                    catalogTable,
-                                    ReadonlyConfig.fromConfig(sinkConfig),
-                                    classLoader,
-                                    ((TableSinkFactory) factory.get())
-                                            .excludeTablePlaceholderReplaceKeys());
-                    ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
-                    seaTunnelSink =
-                            ((TableSinkFactory) factory.get()).createSink(context).createSink();
-                    seaTunnelSink.setJobContext(jobContext);
-                    handleSaveMode(seaTunnelSink);
-                    TableIdentifier tableId = catalogTable.getTableId();
-                    sinks.put(tableId.toTablePath(), seaTunnelSink);
-                }
+            for (CatalogTable catalogTable : stream.getCatalogTables()) {
+                SeaTunnelSink sink = FactoryUtil.createAndPrepareSink(
+                        catalogTable,
+                        ReadonlyConfig.fromConfig(sinkConfig),
+                        classLoader,
+                        sinkConfig.getString(PLUGIN_NAME.key())
+                );
+                sink.setJobContext(jobContext);
+                SeaTunnelRowType sourceType = catalogTable.getSeaTunnelRowType();
+                sink.setTypeInfo(sourceType);
+                handleSaveMode(sink);
+                TableIdentifier tableId = catalogTable.getTableId();
+                sinks.put(tableId.toTablePath(), sink);
             }
             SeaTunnelSink sink =
                     tryGenerateMultiTableSink(
@@ -182,28 +154,6 @@ public class SinkExecuteProcessor
             return sinks.values().iterator().next();
         }
         return FactoryUtil.createMultiTableSink(sinks, sinkConfig, classLoader);
-    }
-
-    public boolean isFallback(Factory factory) {
-        try {
-            ((TableSinkFactory) factory).createSink(null);
-        } catch (Exception e) {
-            if (e instanceof UnsupportedOperationException
-                    && "The Factory has not been implemented and the deprecated Plugin will be used."
-                            .equals(e.getMessage())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public SeaTunnelSink fallbackCreateSink(
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
-            PluginIdentifier pluginIdentifier,
-            Config pluginConfig) {
-        SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-        source.prepare(pluginConfig);
-        return source;
     }
 
     public void handleSaveMode(SeaTunnelSink seaTunnelSink) {
