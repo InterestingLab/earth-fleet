@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Elasticsearch</name>
 
     <properties>
-        <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
+        <elasticsearch-rest-client.version>8.15.3</elasticsearch-rest-client.version>
         <guava.version>31.1-jre</guava.version>
     </properties>
 
