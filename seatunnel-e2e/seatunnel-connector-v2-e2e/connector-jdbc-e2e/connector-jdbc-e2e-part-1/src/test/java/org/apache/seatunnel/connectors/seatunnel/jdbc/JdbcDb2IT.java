@@ -22,6 +22,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.db2.DB2Catalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -53,7 +55,8 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "com.ibm.db2.jcc.DB2Driver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_db2_source_and_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_db2_source_and_sink.conf", "/jdbc_db2_source_and_save_mode_sink.conf");
 
     /** <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a> */
     private static final String DB2_IMAGE = "ibmcom/db2";
@@ -213,5 +216,18 @@ public class JdbcDb2IT extends AbstractJdbcIT {
             }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new DB2Catalog(
+                        "DB2",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        "E2E");
+        catalog.open();
     }
 }
