@@ -80,7 +80,8 @@ public class BaseSinkConfig extends KerberosConfig {
                                     CompressFormat.LZ4,
                                     CompressFormat.GZIP,
                                     CompressFormat.BROTLI,
-                                    CompressFormat.ZSTD))
+                                    CompressFormat.ZSTD,
+                                    CompressFormat.LZ4_RAW))
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Parquet file supported compression");
 

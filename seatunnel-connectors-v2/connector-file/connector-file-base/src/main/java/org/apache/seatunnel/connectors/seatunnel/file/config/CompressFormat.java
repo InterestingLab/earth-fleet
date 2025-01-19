@@ -37,7 +37,8 @@ public enum CompressFormat implements Serializable {
     // only parquet support
     GZIP(".gz", CompressionKind.NONE, CompressionCodecName.GZIP),
     BROTLI(".br", CompressionKind.NONE, CompressionCodecName.BROTLI),
-    ZSTD(".zstd", CompressionKind.NONE, CompressionCodecName.ZSTD);
+    ZSTD(".zstd", CompressionKind.NONE, CompressionCodecName.ZSTD),
+    LZ4_RAW(".lz4raw", CompressionKind.NONE, CompressionCodecName.LZ4_RAW);
 
     private final String compressCodec;
     private final CompressionKind orcCompression;

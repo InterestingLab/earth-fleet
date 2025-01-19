@@ -296,9 +296,14 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         case INT_8:
                             return BasicType.BYTE_TYPE;
                         case INT_16:
+                        case UINT_8:
                             return BasicType.SHORT_TYPE;
                         case DATE:
                             return LocalTimeType.LOCAL_DATE_TYPE;
+                        case UINT_16:
+                            return BasicType.INT_TYPE;
+                        case UINT_32:
+                            return BasicType.LONG_TYPE;
                         default:
                             throw CommonError.convertToSeaTunnelTypeError(
                                     PARQUET, type.toString(), name);
