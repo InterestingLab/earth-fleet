@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
@@ -73,7 +73,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             record = serializer.serialize(element);
         } catch (Exception e) {
             throw new StarRocksConnectorException(
-                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
                     "serialize failed. Row={" + element + "}",
                     e);
         }
@@ -121,8 +121,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
         } catch (IOException e) {
             log.error("Close starRocks manager failed.", e);
-            throw new StarRocksConnectorException(
-                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
+            throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -138,7 +137,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             return new StarRocksJsonSerializer(seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
         }
         throw new StarRocksConnectorException(
-                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                CommonErrorCode.ILLEGAL_ARGUMENT,
                 "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }
