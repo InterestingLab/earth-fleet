@@ -84,14 +84,45 @@ public class PostgresUtils {
                 });
     }
 
+    private static String resolveVersion(JdbcConnection jdbc) {
+        try (Statement statement = jdbc.connection().createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT version()")) {
+            resultSet.next();
+            return resultSet.getString(1);
+        } catch (Exception e) {
+            log.info(
+                    "Failed to get PostgreSQL version, fallback to default version: {}",
+                    e.getMessage(),
+                    e);
+            return "";
+        }
+    }
+
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
             throws SQLException {
-        // The statement used to get approximate row count which is less
-        // accurate than COUNT(*), but is more efficient for large table.
-        final String rowCountQuery =
-                String.format(
-                        "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
-                        tableId.table());
+        String version = resolveVersion(jdbc);
+        log.info("Detected PostgreSQL version: {}", version);
+
+        // Determine if the version is greater than or equal to 13
+        boolean isVersion13OrAbove = isPostgresVersion13OrAbove(version);
+
+        final String rowCountQuery;
+        if (isVersion13OrAbove) {
+            // Query if the version is greater than or equal to 13
+            rowCountQuery =
+                    String.format(
+                            "SELECT reltuples FROM pg_class r WHERE (relkind = 'r' OR relkind = 'p') AND relname = '%s';",
+                            tableId.table());
+        } else {
+            // Provide an alternative if the version requirement is not met (i.e., if the version is
+            // less than 13)
+            rowCountQuery =
+                    String.format(
+                            "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
+                            tableId.table());
+        }
+
+        log.info("Executing query: {}", rowCountQuery);
         return jdbc.queryAndMap(
                 rowCountQuery,
                 rs -> {
@@ -103,6 +134,27 @@ public class PostgresUtils {
                     }
                     return rs.getLong(1);
                 });
+    }
+
+    private static boolean isPostgresVersion13OrAbove(String version) {
+        // Extracting the major version number from a PostgreSQL version string
+        if (version == null || version.isEmpty()) {
+            log.warn("PostgreSQL version is empty or null. Assuming version < 13.");
+            return false;
+        }
+        try {
+            //  "PostgreSQL 13.3 (Ubuntu 13.3-1.pgdg20.04+1)"  "13"
+            String[] parts = version.split(" ");
+            for (String part : parts) {
+                if (part.matches("\\d+(\\.\\d+)?")) { // Matching numeric versions
+                    int majorVersion = Integer.parseInt(part.split("\\.")[0]);
+                    return majorVersion >= 13;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse PostgreSQL version: {}. Assuming version < 13.", version, e);
+        }
+        return false;
     }
 
     public static Object queryMin(

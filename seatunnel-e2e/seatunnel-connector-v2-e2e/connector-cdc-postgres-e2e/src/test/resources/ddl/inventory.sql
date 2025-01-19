@@ -168,6 +168,55 @@ CREATE TABLE sink_postgres_cdc_table_3
     PRIMARY KEY (id)
 );
 
+
+
+CREATE TABLE source_partitioned_table
+(
+    id             INTEGER NOT NULL,
+    data           TEXT,
+    event_time     TIMESTAMP NOT NULL,
+    PRIMARY KEY (id, event_time)
+) PARTITION BY RANGE (event_time);
+
+
+CREATE TABLE source_partitioned_table_2023
+    PARTITION OF source_partitioned_table
+    FOR VALUES FROM ('2023-01-01 00:00:00') TO ('2024-01-01 00:00:00');
+
+CREATE TABLE source_partitioned_table_2024
+    PARTITION OF source_partitioned_table
+    FOR VALUES FROM ('2024-01-01 00:00:00') TO ('2025-01-01 00:00:00');
+
+
+CREATE TABLE sink_partitioned_table
+(
+    id             INTEGER NOT NULL,
+    data           TEXT,
+    event_time     TIMESTAMP NOT NULL,
+    PRIMARY KEY (id, event_time)
+) PARTITION BY RANGE (event_time);
+
+
+CREATE TABLE sink_partitioned_table_2023
+    PARTITION OF sink_partitioned_table
+    FOR VALUES FROM ('2023-01-01 00:00:00') TO ('2024-01-01 00:00:00');
+
+CREATE TABLE sink_partitioned_table_2024
+    PARTITION OF sink_partitioned_table
+    FOR VALUES FROM ('2024-01-01 00:00:00') TO ('2025-01-01 00:00:00');
+
+ALTER TABLE source_partitioned_table_2023 REPLICA IDENTITY FULL;
+ALTER TABLE source_partitioned_table_2024 REPLICA IDENTITY FULL;
+ALTER TABLE source_partitioned_table REPLICA IDENTITY FULL;
+ALTER TABLE sink_partitioned_table REPLICA IDENTITY FULL;
+ALTER TABLE sink_partitioned_table_2023 REPLICA IDENTITY FULL;
+ALTER TABLE sink_partitioned_table_2023 REPLICA IDENTITY FULL;
+
+INSERT INTO source_partitioned_table (id, data, event_time)
+VALUES (1, 'Partitioned data 2023', '2023-06-01 12:00:00'),
+       (2, 'Partitioned data 2024', '2024-03-15 09:30:00');
+
+
 ALTER TABLE postgres_cdc_table_1
     REPLICA IDENTITY FULL;
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
@@ -45,6 +43,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
+import com.beust.jcommander.internal.Lists;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -93,9 +92,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE_1 = "postgres_cdc_table_1";
     private static final String SOURCE_TABLE_2 = "postgres_cdc_table_2";
     private static final String SOURCE_TABLE_3 = "postgres_cdc_table_3";
+    private static final String SOURCE_PARTITIONED_TABLE = "source_partitioned_table";
+    private static final String SOURCE_PARTITIONED_TABLE_2023 = "source_partitioned_table_2023";
     private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
     private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
     private static final String SINK_TABLE_3 = "sink_postgres_cdc_table_3";
+    private static final String SINK_PARTITIONED_TABLE = "sink_partitioned_table";
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
@@ -142,6 +144,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         log.info("The second stage: Starting Postgres containers...");
+
         POSTGRES_CONTAINER.setPortBindings(
                 Lists.newArrayList(
                         String.format(
@@ -190,6 +193,159 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Clear related content to ensure that multiple operations are not affected
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    private static String resolveVersion(Connection jdbc) {
+        try (Statement statement = jdbc.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT version()")) {
+            resultSet.next();
+            return resultSet.getString(1);
+        } catch (Exception e) {
+            log.info(
+                    "Failed to get PostgreSQL version, fallback to default version: {}",
+                    e.getMessage(),
+                    e);
+            return "";
+        }
+    }
+
+    private static boolean isPostgresVersion13OrAbove(String version) {
+
+        if (version == null || version.isEmpty()) {
+            log.warn("PostgreSQL version is empty or null. Assuming version < 13.");
+            return false;
+        }
+        try {
+            String[] parts = version.split(" ");
+            for (String part : parts) {
+                if (part.matches("\\d+(\\.\\d+)?")) {
+                    int majorVersion = Integer.parseInt(part.split("\\.")[0]);
+                    return majorVersion >= 13;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse PostgreSQL version: {}. Assuming version < 13.", version, e);
+        }
+        return false;
+    }
+
+    @TestTemplate
+    public void testPostgresPartitionedTableE2e(TestContainer container) {
+        try (Connection connection = getJdbcConnection(); ) {
+            String version = resolveVersion(connection);
+            log.info("Detected PostgreSQL version: {}", version);
+            boolean isVersion13OrAbove = isPostgresVersion13OrAbove(version);
+            if (isVersion13OrAbove) {
+                Partition13(container);
+            } else {
+                Partition12(container);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void Partition13(TestContainer container) {
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob("/postgrescdc_to_postgres_with_partition.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_PARTITIONED_TABLE)),
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SINK_PARTITIONED_TABLE)));
+                            });
+
+            // insert update delete
+            upsertDeleteSourcePartionTable(POSTGRESQL_SCHEMA, SOURCE_PARTITIONED_TABLE);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_PARTITIONED_TABLE)),
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SINK_PARTITIONED_TABLE)));
+                            });
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_PARTITIONED_TABLE);
+            clearTable(POSTGRESQL_SCHEMA, SINK_PARTITIONED_TABLE);
+        }
+    }
+
+    public void Partition12(TestContainer container) {
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob("/postgrescdc_to_postgres_with_partition12.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_PARTITIONED_TABLE_2023)),
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SINK_PARTITIONED_TABLE)));
+                            });
+
+            // insert update delete
+            upsertDeleteSourcePartionTable(POSTGRESQL_SCHEMA, SOURCE_PARTITIONED_TABLE_2023);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_PARTITIONED_TABLE_2023)),
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SINK_PARTITIONED_TABLE)));
+                            });
+
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_PARTITIONED_TABLE_2023);
+            clearTable(POSTGRESQL_SCHEMA, SINK_PARTITIONED_TABLE);
         }
     }
 
@@ -737,6 +893,31 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2;");
 
         executeSql("UPDATE " + database + "." + tableName + " SET f_big = 10000 where id = 3;");
+    }
+
+    private void upsertDeleteSourcePartionTable(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (2, 'Sample Data 1', '2023-06-15 10:30:00');");
+
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (3, 'Sample Data 2', '2023-07-20 15:45:00');");
+
+        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 2;");
+
+        executeSql(
+                "UPDATE "
+                        + database
+                        + "."
+                        + tableName
+                        + " SET data = 'Updated Data' WHERE id = 3;");
     }
 
     private String getQuerySQL(String database, String tableName) {
