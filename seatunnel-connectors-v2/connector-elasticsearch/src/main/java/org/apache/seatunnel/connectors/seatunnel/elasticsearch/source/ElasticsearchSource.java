@@ -50,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -123,7 +124,8 @@ public class ElasticsearchSource
 
             for (int i = 0; i < source.size(); i++) {
                 String key = source.get(i);
-                String sourceType = esFieldType.get(key).getDataType();
+                BasicTypeDefine<EsType> esTypeBasicTypeDefine = esFieldType.get(key);
+                String sourceType = esTypeBasicTypeDefine.getDataType();
                 if (arrayColumn.containsKey(key)) {
                     String value = arrayColumn.get(key);
                     SeaTunnelDataType<?> dataType =
@@ -132,6 +134,12 @@ public class ElasticsearchSource
                             PhysicalColumn.of(
                                     key, dataType, 0L, true, null, null, sourceType, null));
                     continue;
+                }
+
+                // If the field type is date, we need to add the options to the column
+                Map<String, Object> options = new HashMap<>();
+                if (esTypeBasicTypeDefine.getNativeType().getType().equals(EsType.DATE)) {
+                    options = esTypeBasicTypeDefine.getNativeType().getOptions();
                 }
 
                 builder.column(
@@ -143,7 +151,7 @@ public class ElasticsearchSource
                                 null,
                                 null,
                                 sourceType,
-                                null));
+                                options));
             }
             catalogTable =
                     CatalogTable.of(

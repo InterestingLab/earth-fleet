@@ -74,9 +74,9 @@ public class ElasticsearchSourceReader
             ElasticsearchSourceSplit split = splits.poll();
             if (split != null) {
                 SeaTunnelRowType seaTunnelRowType = split.getSeaTunnelRowType();
-                SeaTunnelRowDeserializer deserializer =
-                        new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
                 SourceConfig sourceIndexInfo = split.getSourceConfig();
+                SeaTunnelRowDeserializer deserializer =
+                        new DefaultSeaTunnelRowDeserializer(seaTunnelRowType, sourceIndexInfo);
                 ScrollResult scrollResult =
                         esRestClient.searchByScroll(
                                 sourceIndexInfo.getIndex(),
